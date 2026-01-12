@@ -1,0 +1,21 @@
+{
+  "name": "cbz2xtc-frontend",
+  "version": "1.0.0",
+  "description": "Browser-based CBZ to XTC converter for XTEink X4",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run index.ts",
+    "start": "bun run index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
+  }
+}

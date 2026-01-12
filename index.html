@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CBZ to XTC Converter - XTEink X4</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>CBZ to XTC Converter</h1>
+      <p class="subtitle">Convert manga files for XTEink X4 - entirely in your browser</p>
+    </header>
+
+    <div id="dropzone" class="dropzone">
+      <div class="dropzone-content">
+        <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p>Drag & drop CBZ files here</p>
+        <p class="hint">or click to select files</p>
+        <input type="file" id="fileInput" accept=".cbz,.CBZ" multiple hidden>
+      </div>
+    </div>
+
+    <div class="options">
+      <h3>Options</h3>
+      <div class="options-grid">
+        <div class="option-group">
+          <label for="splitMode">Page Split Mode:</label>
+          <select id="splitMode">
+            <option value="split">Split in half</option>
+            <option value="overlap" selected>Overlapping thirds</option>
+            <option value="nosplit">No split</option>
+          </select>
+        </div>
+
+        <div class="option-group">
+          <label for="dithering">Dithering:</label>
+          <select id="dithering">
+            <option value="floyd" selected>Floyd-Steinberg</option>
+            <option value="ordered">Ordered/Bayer</option>
+            <option value="sierra-lite">Sierra Lite</option>
+            <option value="atkinson">Atkinson</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+
+        <div class="option-group">
+          <label for="contrast">Contrast Boost:</label>
+          <select id="contrast">
+            <option value="0">None</option>
+            <option value="2">Light</option>
+            <option value="4" selected>Medium</option>
+            <option value="6">Strong</option>
+            <option value="8">Very Strong</option>
+          </select>
+        </div>
+
+        <div class="option-group">
+          <label for="margin">Margin Crop (%):</label>
+          <input type="number" id="margin" min="0" max="20" value="0" step="0.5">
+        </div>
+      </div>
+    </div>
+
+    <div id="fileList" class="file-list hidden">
+      <h3>Files to Convert</h3>
+      <div id="files"></div>
+      <button id="convertBtn" class="btn-primary">Convert All</button>
+    </div>
+
+    <div id="progress" class="progress-section hidden">
+      <h3>Conversion Progress</h3>
+      <div class="progress-bar-container">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+      <p id="progressText">Processing...</p>
+      <div id="currentPage" class="current-page"></div>
+    </div>
+
+    <div id="results" class="results-section hidden">
+      <h3>Completed Files</h3>
+      <div id="resultsList"></div>
+    </div>
+
+    <footer>
+      <p>Runs entirely in your browser - no server upload required</p>
+      <p class="credits">Based on <a href="https://github.com/tazua/cbz2xtc" target="_blank">cbz2xtc</a></p>
+    </footer>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
