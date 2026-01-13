@@ -1,0 +1,358 @@
+/* Dropzone */
+.dropzone-wrapper {
+  position: relative;
+}
+
+.dropzone {
+  position: relative;
+  border: 2px dashed var(--ink-faded);
+  background: var(--paper-dark);
+  padding: var(--space-2xl) var(--space-lg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.dropzone::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed transparent;
+  pointer-events: none;
+  transition: border-color 0.2s;
+}
+
+.dropzone:hover,
+.dropzone:focus-visible {
+  border-color: var(--ink);
+  background: var(--paper);
+}
+
+.dropzone.dragover {
+  border-color: var(--accent);
+  border-style: solid;
+  background: var(--paper);
+}
+
+.dropzone.dragover::before {
+  border-color: var(--accent);
+}
+
+.dropzone-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.dropzone-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--ink-faded);
+  transition: color 0.2s, transform 0.2s;
+}
+
+.dropzone:hover .dropzone-icon,
+.dropzone.dragover .dropzone-icon {
+  color: var(--ink);
+  transform: translateY(-2px);
+}
+
+.dropzone-text {
+  text-align: center;
+}
+
+.dropzone-primary {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.dropzone-secondary {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--ink-faded);
+  margin-top: var(--space-xs);
+}
+
+/* Options panel */
+.options-panel {
+  background: var(--paper-dark);
+  padding: var(--space-lg);
+  border: var(--border-light);
+  align-self: start;
+}
+
+.option {
+  margin-bottom: var(--space-md);
+}
+
+.option:last-child {
+  margin-bottom: 0;
+}
+
+.option label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faded);
+  margin-bottom: var(--space-xs);
+}
+
+.option select,
+.option input {
+  width: 100%;
+  padding: var(--space-sm) var(--space-sm);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  background: var(--paper);
+  border: var(--border);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.option select:hover,
+.option input:hover {
+  background: #fff;
+}
+
+.option select:focus,
+.option input:focus {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.input-with-unit {
+  display: flex;
+  align-items: stretch;
+}
+
+.input-with-unit input {
+  border-right: none;
+  flex: 1;
+}
+
+.input-with-unit .unit {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-sm);
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* File list */
+.file-list {
+  margin-top: calc(-1 * var(--space-md));
+}
+
+.files-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--paper-dark);
+  border-left: 3px solid var(--ink);
+}
+
+.file-item .name {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-item .size {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--ink-faded);
+}
+
+.file-item .remove {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--ink-faded);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.file-item .remove:hover {
+  color: var(--accent);
+}
+
+/* Convert button */
+.btn-convert {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.1s;
+}
+
+.btn-convert svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.2s;
+}
+
+.btn-convert:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.btn-convert:hover:not(:disabled) svg {
+  transform: translateX(4px);
+}
+
+.btn-convert:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-convert:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Progress */
+.progress-section {
+  padding: var(--space-lg);
+  background: var(--paper-dark);
+  border: var(--border);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-sm);
+}
+
+#progressText {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--ink-light);
+}
+
+#progressPercent {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.progress-track {
+  height: 4px;
+  background: var(--paper);
+  border: 1px solid var(--ink-faded);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--ink);
+  transition: width 0.3s ease-out;
+}
+
+.preview-container {
+  margin-top: var(--space-lg);
+  display: flex;
+  justify-content: center;
+}
+
+.preview-container img {
+  max-height: 300px;
+  border: var(--border);
+  box-shadow: 8px 8px 0 var(--ink);
+}
+
+/* Results */
+.results-section {
+  padding-top: var(--space-md);
+}
+
+.results-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.result-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--paper-dark);
+  border: var(--border);
+}
+
+.result-item .name {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.result-item .info {
+  font-size: 0.8rem;
+  color: var(--ink-faded);
+  margin-top: var(--space-xs);
+}
+
+.result-item.error {
+  border-color: var(--accent);
+  border-left-width: 4px;
+}
+
+.result-item.error .name {
+  color: var(--accent);
+}
+
+.btn-download {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--paper);
+  border: var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-download:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
