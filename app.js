@@ -2,6 +2,7 @@
 import { applyDithering } from './dithering.js';
 import { toGrayscale, applyContrast, calculateOverlapSegments } from './image-processing.js';
 import { rotateCanvas, extractAndRotate, resizeWithPadding, TARGET_WIDTH, TARGET_HEIGHT } from './canvas-utils.js';
+import { openViewer } from './viewer.js';
 
 // State
 let selectedFiles = [];
@@ -180,7 +181,10 @@ function showResults() {
           <span class="name">${escapeHtml(result.name)}</span>
           <div class="info">${result.pageCount} pages &middot; ${formatSize(result.size)}</div>
         </div>
-        <button class="btn-download" data-idx="${idx}">Download</button>
+        <div class="result-actions">
+          <button class="btn-preview" data-idx="${idx}">Preview</button>
+          <button class="btn-download" data-idx="${idx}">Download</button>
+        </div>
       </div>
     `;
   }).join('');
@@ -189,6 +193,15 @@ function showResults() {
     btn.addEventListener('click', (e) => {
       const idx = parseInt(e.target.dataset.idx);
       downloadResult(results[idx]);
+    });
+  });
+
+  resultsList.querySelectorAll('.btn-preview').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = parseInt(e.target.dataset.idx);
+      if (results[idx].pageImages) {
+        openViewer(results[idx].pageImages);
+      }
     });
   });
 }
@@ -247,13 +260,17 @@ async function convertCbzToXtc(file, options, onProgress) {
 
   processedPages.sort((a, b) => a.name.localeCompare(b.name));
 
+  // Store page images for viewer
+  const pageImages = processedPages.map(page => page.canvas.toDataURL('image/png'));
+
   const xtcData = await buildXtc(processedPages);
 
   return {
     name: file.name.replace(/\.cbz$/i, '.xtc'),
     data: xtcData,
     size: xtcData.byteLength,
-    pageCount: processedPages.length
+    pageCount: processedPages.length,
+    pageImages
   };
 }
 

@@ -118,7 +118,8 @@
 
 /* Section reveal */
 .file-list:not(.hidden),
-.results-section:not(.hidden) {
+.results-section:not(.hidden),
+.viewer-section:not(.hidden) {
   animation: fadeUp 0.4s ease-out;
 }
 

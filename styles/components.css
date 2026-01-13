@@ -340,6 +340,12 @@
   color: var(--accent);
 }
 
+.result-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.btn-preview,
 .btn-download {
   padding: var(--space-sm) var(--space-md);
   background: var(--paper);
@@ -352,7 +358,184 @@
   white-space: nowrap;
 }
 
+.btn-preview:hover,
 .btn-download:hover {
   background: var(--ink);
   color: var(--paper);
+}
+
+/* Manga Viewer */
+.viewer-section {
+  grid-column: 1 / -1;
+  background: var(--ink);
+  margin: 0 calc(-1 * var(--space-lg));
+  padding: var(--space-lg);
+  position: relative;
+  z-index: 10000; /* Above grain overlay */
+}
+
+@media (min-width: 768px) {
+  .viewer-section {
+    margin: 0 calc(-1 * var(--space-2xl));
+    padding: var(--space-xl) var(--space-2xl);
+  }
+}
+
+.viewer-section .section-header h2 {
+  color: var(--paper-dark);
+}
+
+.viewer-section .badge {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.viewer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+
+.viewer-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.viewer-separator {
+  width: 1px;
+  height: 24px;
+  background: var(--ink-faded);
+  margin: 0 var(--space-xs);
+}
+
+.viewer-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--ink-faded);
+  color: var(--paper-dark);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.viewer-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.viewer-btn:hover:not(:disabled) {
+  background: var(--paper);
+  color: var(--ink);
+  border-color: var(--paper);
+}
+
+.viewer-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.viewer-btn-close {
+  margin-left: var(--space-sm);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.viewer-btn-close:hover {
+  background: var(--accent) !important;
+  color: var(--paper) !important;
+  border-color: var(--accent) !important;
+}
+
+.viewer-container {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--ink-light);
+}
+
+.viewer-track {
+  display: flex;
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.viewer-page {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  min-height: 400px;
+}
+
+.viewer-page img {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  image-rendering: pixelated;
+  transition: transform 0.3s ease;
+}
+
+/* Rotated (horizontal) view */
+.viewer-section.rotated .viewer-page img {
+  transform: rotate(-90deg);
+  max-width: 70vh;
+  max-height: 100%;
+}
+
+.viewer-thumbnails {
+  margin-top: var(--space-md);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-light) transparent;
+}
+
+.viewer-thumbnails::-webkit-scrollbar {
+  height: 6px;
+}
+
+.viewer-thumbnails::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.viewer-thumbnails::-webkit-scrollbar-thumb {
+  background: var(--ink-light);
+}
+
+.thumbnail-track {
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-xs) 0;
+}
+
+.thumbnail {
+  flex: 0 0 auto;
+  width: 60px;
+  height: 100px;
+  background: #000;
+  border: 2px solid transparent;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: all 0.15s;
+  overflow: hidden;
+}
+
+.thumbnail:hover {
+  opacity: 1;
+}
+
+.thumbnail.active {
+  border-color: var(--paper);
+  opacity: 1;
+}
+
+.thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
 }

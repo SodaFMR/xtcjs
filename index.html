@@ -120,6 +120,45 @@
       <div id="resultsList" class="results-grid"></div>
     </section>
 
+    <section id="viewer" class="viewer-section hidden">
+      <div class="viewer-header">
+        <div class="section-header">
+          <h2>Preview</h2>
+          <span id="pageIndicator" class="badge">1 / 1</span>
+        </div>
+        <div class="viewer-controls">
+          <button id="viewerRotate" class="viewer-btn" aria-label="Rotate view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+              <path d="M21 3v5h-5"/>
+            </svg>
+          </button>
+          <div class="viewer-separator"></div>
+          <button id="viewerPrev" class="viewer-btn" aria-label="Previous page">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </button>
+          <button id="viewerNext" class="viewer-btn" aria-label="Next page">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </button>
+          <button id="viewerClose" class="viewer-btn viewer-btn-close" aria-label="Close viewer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="viewer-container">
+        <div id="viewerTrack" class="viewer-track"></div>
+      </div>
+      <div class="viewer-thumbnails">
+        <div id="thumbnailTrack" class="thumbnail-track"></div>
+      </div>
+    </section>
+
     <footer class="footer">
       <p>All processing happens in your browser</p>
       <a href="https://github.com/tazua/cbz2xtc" target="_blank" rel="noopener">Based on cbz2xtc</a>
