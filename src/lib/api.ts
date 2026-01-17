@@ -9,7 +9,6 @@ export interface ConversionStats {
   lastConversion: string | null
   conversionHistory: Array<{
     timestamp: string
-    fileName: string
     pageCount: number
     fileSize: number
   }>
@@ -21,7 +20,6 @@ export async function getStats(): Promise<ConversionStats> {
 }
 
 export async function recordConversion(data: {
-  fileName: string
   pageCount: number
   fileSize: number
 }): Promise<void> {

@@ -10,7 +10,6 @@ interface ConversionStats {
   lastConversion: string | null
   conversionHistory: Array<{
     timestamp: string
-    fileName: string
     pageCount: number
     fileSize: number
   }>
@@ -35,7 +34,6 @@ api.get('/stats', (c) => {
 // Record a conversion
 api.post('/stats/conversion', async (c) => {
   const body = await c.req.json<{
-    fileName: string
     pageCount: number
     fileSize: number
   }>()
@@ -49,7 +47,6 @@ api.post('/stats/conversion', async (c) => {
 
   stats.conversionHistory.push({
     timestamp,
-    fileName: body.fileName,
     pageCount: body.pageCount,
     fileSize: body.fileSize,
   })

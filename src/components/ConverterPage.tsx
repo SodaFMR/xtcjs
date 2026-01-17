@@ -61,7 +61,6 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
 
         if (result.pageCount && result.size) {
           recordConversion({
-            fileName: result.name,
             pageCount: result.pageCount,
             fileSize: result.size,
           }).catch(() => {})
