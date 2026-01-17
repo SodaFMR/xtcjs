@@ -259,13 +259,13 @@
   margin-bottom: var(--space-sm);
 }
 
-#progressText {
+.progress-text {
   font-family: var(--font-mono);
   font-size: 0.85rem;
   color: var(--ink-light);
 }
 
-#progressPercent {
+.progress-percent {
   font-family: var(--font-mono);
   font-size: 0.9rem;
   font-weight: 500;
