@@ -129,16 +129,14 @@ async function convertPdfToXtc(
     const canvas = document.createElement('canvas')
     canvas.width = viewport.width
     canvas.height = viewport.height
-    const ctx = canvas.getContext('2d')!
 
-    await page.render({ canvas, viewport }).promise
+    await page.render({
+      canvas,
+      viewport,
+      background: 'rgb(255,255,255)'
+    }).promise
 
-    // Convert canvas to blob and process like an image
-    const blob = await new Promise<Blob>((resolve) => {
-      canvas.toBlob((b) => resolve(b!), 'image/png')
-    })
-
-    const pages = await processImage(blob, i, options)
+    const pages = processCanvasAsImage(canvas, i, options)
     processedPages.push(...pages)
 
     if (pages.length > 0 && pages[0].canvas) {
@@ -161,6 +159,105 @@ async function convertPdfToXtc(
     pageCount: processedPages.length,
     pageImages
   }
+}
+
+/**
+ * Process a canvas (from PDF rendering) through the same pipeline as images
+ */
+function processCanvasAsImage(
+  sourceCanvas: HTMLCanvasElement,
+  pageNum: number,
+  options: ConversionOptions
+): ProcessedPage[] {
+  const results: ProcessedPage[] = []
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')!
+
+  let width = sourceCanvas.width
+  let height = sourceCanvas.height
+
+  if (options.margin > 0) {
+    const marginPx = {
+      left: Math.floor(width * options.margin / 100),
+      top: Math.floor(height * options.margin / 100),
+      right: Math.floor(width * options.margin / 100),
+      bottom: Math.floor(height * options.margin / 100)
+    }
+
+    const croppedWidth = width - marginPx.left - marginPx.right
+    const croppedHeight = height - marginPx.top - marginPx.bottom
+
+    canvas.width = croppedWidth
+    canvas.height = croppedHeight
+    ctx.drawImage(
+      sourceCanvas,
+      marginPx.left, marginPx.top,
+      croppedWidth, croppedHeight,
+      0, 0,
+      croppedWidth, croppedHeight
+    )
+
+    width = croppedWidth
+    height = croppedHeight
+  } else {
+    canvas.width = width
+    canvas.height = height
+    ctx.drawImage(sourceCanvas, 0, 0)
+  }
+
+  if (options.contrast > 0) {
+    applyContrast(ctx, width, height, options.contrast)
+  }
+
+  toGrayscale(ctx, width, height)
+
+  const shouldSplit = width < height && options.splitMode !== 'nosplit'
+
+  if (shouldSplit) {
+    if (options.splitMode === 'overlap') {
+      const segments = calculateOverlapSegments(width, height)
+      segments.forEach((seg, idx) => {
+        const letter = String.fromCharCode(97 + idx)
+        const pageCanvas = extractAndRotate(canvas, seg.x, seg.y, seg.w, seg.h)
+        const finalCanvas = resizeWithPadding(pageCanvas)
+        applyDithering(finalCanvas.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+
+        results.push({
+          name: `${String(pageNum).padStart(4, '0')}_3_${letter}.png`,
+          canvas: finalCanvas
+        })
+      })
+    } else {
+      const halfHeight = Math.floor(height / 2)
+
+      const topCanvas = extractAndRotate(canvas, 0, 0, width, halfHeight)
+      const topFinal = resizeWithPadding(topCanvas)
+      applyDithering(topFinal.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+      results.push({
+        name: `${String(pageNum).padStart(4, '0')}_2_a.png`,
+        canvas: topFinal
+      })
+
+      const bottomCanvas = extractAndRotate(canvas, 0, halfHeight, width, halfHeight)
+      const bottomFinal = resizeWithPadding(bottomCanvas)
+      applyDithering(bottomFinal.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+      results.push({
+        name: `${String(pageNum).padStart(4, '0')}_2_b.png`,
+        canvas: bottomFinal
+      })
+    }
+  } else {
+    const rotatedCanvas = rotateCanvas(canvas, 90)
+    const finalCanvas = resizeWithPadding(rotatedCanvas)
+    applyDithering(finalCanvas.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+
+    results.push({
+      name: `${String(pageNum).padStart(4, '0')}_0_spread.png`,
+      canvas: finalCanvas
+    })
+  }
+
+  return results
 }
 
 /**
