@@ -2,13 +2,14 @@
 
 import JSZip from 'jszip'
 import * as pdfjsLib from 'pdfjs-dist'
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { applyDithering } from './processing/dithering'
 import { toGrayscale, applyContrast, calculateOverlapSegments } from './processing/image'
 import { rotateCanvas, extractAndRotate, resizeWithPadding, TARGET_WIDTH, TARGET_HEIGHT } from './processing/canvas'
 import { buildXtc } from './xtc-format'
 
-// Set up PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+// Set up PDF.js worker from bundled asset
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
 export interface ConversionOptions {
   splitMode: string
@@ -130,7 +131,7 @@ async function convertPdfToXtc(
     canvas.height = viewport.height
     const ctx = canvas.getContext('2d')!
 
-    await page.render({ canvasContext: ctx, viewport }).promise
+    await page.render({ canvas, viewport }).promise
 
     // Convert canvas to blob and process like an image
     const blob = await new Promise<Blob>((resolve) => {
