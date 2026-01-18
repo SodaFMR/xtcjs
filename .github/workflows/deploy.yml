@@ -34,8 +34,7 @@ jobs:
               <title>Redirecting...</title>
               <script>
                 (function () {
-                  var target = "https://xtcjs.app" + window.location.pathname + window.location.search + window.location.hash;
-                  window.location.replace(target);
+                  window.location.replace("https://xtcjs.app/");
                 })();
               </script>
             </head>

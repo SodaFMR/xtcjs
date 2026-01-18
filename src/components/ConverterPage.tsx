@@ -23,8 +23,8 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
   const [viewerPages, setViewerPages] = useState<string[]>([])
   const [options, setOptions] = useState<ConversionOptions>({
     splitMode: 'overlap',
-    dithering: 'floyd',
-    contrast: 4,
+    dithering: fileType === 'pdf' ? 'atkinson' : 'floyd',
+    contrast: fileType === 'pdf' ? 8 : 4,
     margin: 0,
   })
 
