@@ -41,7 +41,7 @@ export function MangaSearch({ open, onClose }: { open: boolean; onClose: () => v
       if (!Array.isArray(data)) throw new Error('Invalid response')
       setResults(data)
     } catch {
-      setError('Failed to fetch results')
+      setError('search-unavailable')
       setResults([])
     } finally {
       setLoading(false)
@@ -119,7 +119,22 @@ export function MangaSearch({ open, onClose }: { open: boolean; onClose: () => v
         </div>
 
         <div className="manga-search-results">
-          {error && <p className="manga-search-error">{error}</p>}
+          {error === 'search-unavailable' && (
+            <div className="manga-search-error">
+              <p>The search server is currently unavailable.</p>
+              <p>
+                You can search directly on{' '}
+                <a
+                  href={`https://nyaa.si/?f=0&c=3_1&q=${encodeURIComponent(query)}`}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  nyaa.si
+                </a>{' '}
+                to find English-translated manga.
+              </p>
+            </div>
+          )}
           {!loading && !error && query && results.length === 0 && (
             <p className="manga-search-empty">No results found</p>
           )}
