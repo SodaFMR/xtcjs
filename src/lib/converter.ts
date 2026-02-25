@@ -120,6 +120,17 @@ function moveCoverToFront<T extends { path: string; originalPage: number }>(
   }
 }
 
+function getPageProcessingOptions(
+  baseOptions: ConversionOptions,
+  isCoverPage: boolean
+): ConversionOptions {
+  // Crosspoint uses XTC page 0 as the home preview, so keep cover full-size.
+  if (!isCoverPage || baseOptions.splitMode === 'nosplit') {
+    return baseOptions
+  }
+  return { ...baseOptions, splitMode: 'nosplit' }
+}
+
 /**
  * Convert a file to XTC format (supports CBZ, CBR and PDF)
  */
@@ -195,8 +206,9 @@ export async function convertCbzToXtc(
   for (let i = 0; i < imageFiles.length; i++) {
     const imgFile = imageFiles[i]
     const imgBlob = await imgFile.entry.async('blob')
+    const pageOptions = getPageProcessingOptions(options, i === 0)
 
-    const pages = await processImage(imgBlob, i + 1, options)
+    const pages = await processImage(imgBlob, i + 1, pageOptions)
     processedPages.push(...pages)
 
     // Track page mapping for TOC adjustment
@@ -306,8 +318,9 @@ export async function convertCbrToXtc(
     const imgFile = imageFiles[i]
     // Create a copy of the data with a regular ArrayBuffer for Blob compatibility
     const imgBlob = new Blob([new Uint8Array(imgFile.data)])
+    const pageOptions = getPageProcessingOptions(options, i === 0)
 
-    const pages = await processImage(imgBlob, i + 1, options)
+    const pages = await processImage(imgBlob, i + 1, pageOptions)
     processedPages.push(...pages)
 
     // Track page mapping for TOC adjustment
