@@ -37,6 +37,23 @@ export function parseComicInfo(xmlContent: string): BookMetadata {
     const pages = doc.querySelectorAll('Pages > Page')
     if (pages.length > 0) {
       metadata.toc = extractTocFromPages(pages)
+
+      const coverHint = extractCoverHintFromPages(pages)
+      if (coverHint.coverPage !== undefined) {
+        metadata.coverPage = coverHint.coverPage
+      }
+      if (coverHint.coverImagePath) {
+        metadata.coverImagePath = coverHint.coverImagePath
+      }
+    }
+
+    // Additional non-standard cover hint some ComicInfo variants include.
+    const coverImageEl = doc.querySelector('CoverImage')
+    if (!metadata.coverImagePath && coverImageEl?.textContent) {
+      const coverImagePath = coverImageEl.textContent.trim()
+      if (coverImagePath) {
+        metadata.coverImagePath = coverImagePath
+      }
     }
   } catch {
     // XML parsing failed, return empty metadata
@@ -77,6 +94,43 @@ function extractTocFromPages(pages: NodeListOf<Element>): TocEntry[] {
   }
 
   return toc
+}
+
+function extractCoverHintFromPages(
+  pages: NodeListOf<Element>
+): { coverPage?: number; coverImagePath?: string } {
+  for (let index = 0; index < pages.length; index++) {
+    const page = pages[index]
+    const type = normalizePageType(page.getAttribute('Type'))
+
+    if (type !== 'frontcover' && type !== 'cover') {
+      continue
+    }
+
+    const filePath = page.getAttribute('File')?.trim()
+    const coverPage = parseZeroIndexedPage(page.getAttribute('Image'))
+
+    return {
+      coverPage: coverPage ?? index + 1,
+      coverImagePath: filePath || undefined
+    }
+  }
+
+  return {}
+}
+
+function normalizePageType(rawType: string | null): string {
+  if (!rawType) return ''
+  return rawType.trim().toLowerCase().replace(/[\s_-]+/g, '')
+}
+
+function parseZeroIndexedPage(rawPage: string | null): number | undefined {
+  if (!rawPage) return undefined
+  const parsed = Number.parseInt(rawPage.trim(), 10)
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return undefined
+  }
+  return parsed + 1
 }
 
 /**

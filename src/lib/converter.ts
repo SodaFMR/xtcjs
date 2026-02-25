@@ -74,6 +74,52 @@ function getAxisCropRect(
   }
 }
 
+function normalizeArchivePath(path: string): string {
+  return path
+    .replace(/\\/g, '/')
+    .replace(/^\.\//, '')
+    .replace(/^\/+/, '')
+    .toLowerCase()
+}
+
+function getBaseName(path: string): string {
+  const slashIndex = path.lastIndexOf('/')
+  if (slashIndex < 0) return path
+  return path.slice(slashIndex + 1)
+}
+
+function moveCoverToFront<T extends { path: string; originalPage: number }>(
+  imageFiles: T[],
+  metadata: BookMetadata
+): void {
+  if (imageFiles.length < 2) return
+
+  let coverIndex = -1
+
+  if (Number.isInteger(metadata.coverPage) && (metadata.coverPage ?? 0) > 0) {
+    coverIndex = imageFiles.findIndex(file => file.originalPage === metadata.coverPage)
+  }
+
+  if (coverIndex === -1 && metadata.coverImagePath) {
+    const normalizedCoverPath = normalizeArchivePath(metadata.coverImagePath)
+    coverIndex = imageFiles.findIndex(file =>
+      normalizeArchivePath(file.path) === normalizedCoverPath
+    )
+
+    if (coverIndex === -1) {
+      const coverBaseName = getBaseName(normalizedCoverPath)
+      coverIndex = imageFiles.findIndex(file =>
+        getBaseName(normalizeArchivePath(file.path)) === coverBaseName
+      )
+    }
+  }
+
+  if (coverIndex > 0) {
+    const [coverImage] = imageFiles.splice(coverIndex, 1)
+    imageFiles.unshift(coverImage)
+  }
+}
+
 /**
  * Convert a file to XTC format (supports CBZ, CBR and PDF)
  */
@@ -102,7 +148,7 @@ export async function convertCbzToXtc(
 ): Promise<ConversionResult> {
   const zip = await JSZip.loadAsync(file)
 
-  const imageFiles: Array<{ path: string; entry: any }> = []
+  const imageFiles: Array<{ path: string; entry: any; originalPage: number }> = []
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']
   let comicInfoEntry: any = null
 
@@ -112,7 +158,7 @@ export async function convertCbzToXtc(
 
     const ext = relativePath.toLowerCase().substring(relativePath.lastIndexOf('.'))
     if (imageExtensions.includes(ext)) {
-      imageFiles.push({ path: relativePath, entry: zipEntry })
+      imageFiles.push({ path: relativePath, entry: zipEntry, originalPage: 0 })
     }
 
     // Look for ComicInfo.xml
@@ -123,6 +169,9 @@ export async function convertCbzToXtc(
   })
 
   imageFiles.sort((a, b) => a.path.localeCompare(b.path))
+  imageFiles.forEach((imageFile, index) => {
+    imageFile.originalPage = index + 1
+  })
 
   if (imageFiles.length === 0) {
     throw new Error('No images found in CBZ')
@@ -138,6 +187,7 @@ export async function convertCbzToXtc(
       // ComicInfo parsing failed, continue without metadata
     }
   }
+  moveCoverToFront(imageFiles, metadata)
 
   const processedPages: ProcessedPage[] = []
   const mappingCtx = new PageMappingContext()
@@ -150,7 +200,7 @@ export async function convertCbzToXtc(
     processedPages.push(...pages)
 
     // Track page mapping for TOC adjustment
-    mappingCtx.addOriginalPage(i + 1, pages.length)
+    mappingCtx.addOriginalPage(imgFile.originalPage, pages.length)
 
     if (pages.length > 0 && pages[0].canvas) {
       const previewUrl = pages[0].canvas.toDataURL('image/png')
@@ -204,7 +254,7 @@ export async function convertCbrToXtc(
   const extractor = await createExtractorFromData({ data: arrayBuffer, wasmBinary })
 
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']
-  const imageFiles: Array<{ path: string; data: Uint8Array }> = []
+  const imageFiles: Array<{ path: string; data: Uint8Array; originalPage: number }> = []
   let comicInfoContent: string | null = null
 
   // Extract all files from the RAR archive
@@ -217,7 +267,7 @@ export async function convertCbrToXtc(
 
     const ext = path.toLowerCase().substring(path.lastIndexOf('.'))
     if (imageExtensions.includes(ext) && extractedFile.extraction) {
-      imageFiles.push({ path, data: extractedFile.extraction })
+      imageFiles.push({ path, data: extractedFile.extraction, originalPage: 0 })
     }
 
     // Look for ComicInfo.xml
@@ -230,6 +280,9 @@ export async function convertCbrToXtc(
   }
 
   imageFiles.sort((a, b) => a.path.localeCompare(b.path))
+  imageFiles.forEach((imageFile, index) => {
+    imageFile.originalPage = index + 1
+  })
 
   if (imageFiles.length === 0) {
     throw new Error('No images found in CBR')
@@ -244,6 +297,7 @@ export async function convertCbrToXtc(
       // ComicInfo parsing failed, continue without metadata
     }
   }
+  moveCoverToFront(imageFiles, metadata)
 
   const processedPages: ProcessedPage[] = []
   const mappingCtx = new PageMappingContext()
@@ -257,7 +311,7 @@ export async function convertCbrToXtc(
     processedPages.push(...pages)
 
     // Track page mapping for TOC adjustment
-    mappingCtx.addOriginalPage(i + 1, pages.length)
+    mappingCtx.addOriginalPage(imgFile.originalPage, pages.length)
 
     if (pages.length > 0 && pages[0].canvas) {
       const previewUrl = pages[0].canvas.toDataURL('image/png')

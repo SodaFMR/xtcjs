@@ -10,6 +10,8 @@ export interface BookMetadata {
   title?: string
   author?: string
   toc: TocEntry[]
+  coverPage?: number      // 1-indexed original page
+  coverImagePath?: string // Optional path hint from ComicInfo
 }
 
 export interface XtcMetadataOptions {
