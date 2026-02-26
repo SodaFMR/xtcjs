@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet, Link, useLocation, useNavigate } from '@tanstack/react-router'
+import { createRootRoute, Outlet, Link, useLocation } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { MangaSearch } from '../components/MangaSearch'
 
@@ -8,23 +8,24 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   const location = useLocation()
-  const navigate = useNavigate()
   const [searchOpen, setSearchOpen] = useState(false)
   const [theme, setTheme] = useState(() => {
     if (typeof window === 'undefined') return 'light'
     return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
   })
+  const isExtraRoute = location.pathname === '/image' || location.pathname === '/video' || location.pathname === '/metadata'
+  const [extraOpen, setExtraOpen] = useState(isExtraRoute)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  const extraSelection = (
-    location.pathname === '/image' ||
-    location.pathname === '/video' ||
-    location.pathname === '/metadata'
-  ) ? location.pathname : ''
+  useEffect(() => {
+    if (isExtraRoute) {
+      setExtraOpen(true)
+    }
+  }, [isExtraRoute])
 
   return (
     <>
@@ -85,36 +86,42 @@ function RootLayout() {
           </p>
         </header>
 
-        <nav className="nav-tabs">
-          <Link to="/" className={`nav-tab${location.pathname === '/' ? ' active' : ''}`}>
-            Manga / Comics
-          </Link>
-          <Link to="/pdf" className={`nav-tab${location.pathname === '/pdf' ? ' active' : ''}`}>
-            PDF
-          </Link>
-          <Link to="/merge" className={`nav-tab${location.pathname === '/merge' ? ' active' : ''}`}>
-            Merge / Split
-          </Link>
-          <div className={`nav-extra${extraSelection ? ' active' : ''}`}>
-            <span className="nav-tab nav-tab-static">Extra</span>
-            <select
-              className="extra-select"
-              aria-label="Choose extra tool"
-              value={extraSelection}
-              onChange={(event) => {
-                const next = event.target.value
-                if (next) {
-                  navigate({ to: next as '/image' | '/video' | '/metadata' })
-                }
-              }}
+        <div className="nav-stack">
+          <nav className="nav-tabs">
+            <Link to="/" className={`nav-tab${location.pathname === '/' ? ' active' : ''}`}>
+              Manga / Comics
+            </Link>
+            <Link to="/pdf" className={`nav-tab${location.pathname === '/pdf' ? ' active' : ''}`}>
+              PDF
+            </Link>
+            <Link to="/merge" className={`nav-tab${location.pathname === '/merge' ? ' active' : ''}`}>
+              Merge / Split
+            </Link>
+            <button
+              type="button"
+              className={`nav-tab nav-tab-button${extraOpen || isExtraRoute ? ' active' : ''}`}
+              onClick={() => setExtraOpen((prev) => !prev)}
+              aria-expanded={extraOpen}
+              aria-controls="extra-tools-nav"
             >
-              <option value="">Select tool</option>
-              <option value="/image">Image</option>
-              <option value="/video">Video</option>
-              <option value="/metadata">Metadata</option>
-            </select>
-          </div>
-        </nav>
+              Extra
+            </button>
+          </nav>
+
+          {extraOpen && (
+            <nav id="extra-tools-nav" className="nav-subtabs" aria-label="Extra tools">
+              <Link to="/image" className={`nav-subtab${location.pathname === '/image' ? ' active' : ''}`}>
+                Image
+              </Link>
+              <Link to="/video" className={`nav-subtab${location.pathname === '/video' ? ' active' : ''}`}>
+                Video
+              </Link>
+              <Link to="/metadata" className={`nav-subtab${location.pathname === '/metadata' ? ' active' : ''}`}>
+                Metadata
+              </Link>
+            </nav>
+          )}
+        </div>
 
         <Outlet />
 

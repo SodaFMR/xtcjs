@@ -150,7 +150,7 @@ function MetadataEditor() {
   return (
     <div className="content-section metadata-page" style={{ gridColumn: '1 / -1' }}>
       <div className="section-header" style={{ marginBottom: 'var(--space-xl)' }}>
-        <h2>Metadata Editor (XTC/XTCH)</h2>
+        <h2 className="metadata-title">Metadata Editor (XTC/XTCH)</h2>
       </div>
 
       {!file && (

@@ -180,7 +180,8 @@
 .btn-advanced {
   width: 100%;
   padding: var(--space-sm) var(--space-md);
-  background: var(--paper);
+  background: var(--ink);
+  color: var(--paper);
   border: var(--border);
   font-family: var(--font-mono);
   font-size: 0.8rem;
@@ -190,7 +191,7 @@
 }
 
 .btn-advanced:hover {
-  background: var(--ink);
+  background: var(--ink-light);
   color: var(--paper);
 }
 
@@ -964,6 +965,16 @@
   margin: var(--space-md) 0;
   font-style: italic;
   color: var(--ink-faded);
+}
+
+.metadata-title {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
 }
 
 .metadata-editor {
