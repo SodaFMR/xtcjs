@@ -137,8 +137,17 @@ function shouldGenerateSampledPreview(pageNum: number, totalPages: number): bool
 }
 
 function calculateWorkerPoolSize(): number {
-  const cores = Math.max(2, navigator.hardwareConcurrency || 4)
-  return Math.max(2, Math.min(6, Math.floor(cores * 0.6)))
+  const cores = Math.max(1, navigator.hardwareConcurrency || 4)
+  let poolSize = Math.max(1, Math.min(6, Math.floor(cores * 0.6)))
+
+  const nav = navigator as Navigator & { deviceMemory?: number }
+  if (typeof nav.deviceMemory === 'number') {
+    if (nav.deviceMemory <= 1) poolSize = 1
+    else if (nav.deviceMemory <= 2) poolSize = Math.min(poolSize, 2)
+    else if (nav.deviceMemory <= 4) poolSize = Math.min(poolSize, 3)
+  }
+
+  return poolSize
 }
 
 async function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality?: number): Promise<Blob> {
@@ -211,14 +220,20 @@ async function processArchiveSourcePages(
   let completed = 0
   let nextIndex = 0
 
+  const workerPoolSize = calculateWorkerPoolSize()
   if (PERF_PIPELINE_V2 && isWorkerPipelineSupported()) {
-    pool = new ConvertWorkerPool(calculateWorkerPoolSize())
+    pool = new ConvertWorkerPool(workerPoolSize)
   }
 
-  const concurrency = pool ? calculateWorkerPoolSize() : 1
+  const concurrency = pool ? workerPoolSize : 1
 
-  const runSlot = async () => {
+  const runSlot = async (slotIndex: number) => {
     while (true) {
+      // If workers are disabled at runtime, continue on one main-thread lane only.
+      if (workerDisabled && slotIndex > 0) {
+        return
+      }
+
       const index = nextIndex++
       if (index >= totalPages) {
         return
@@ -282,7 +297,7 @@ async function processArchiveSourcePages(
   }
 
   try {
-    await Promise.all(Array.from({ length: concurrency }, () => runSlot()))
+    await Promise.all(Array.from({ length: concurrency }, (_, slotIndex) => runSlot(slotIndex)))
   } finally {
     pool?.destroy()
   }
