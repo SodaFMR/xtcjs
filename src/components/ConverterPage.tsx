@@ -18,6 +18,7 @@ interface ConverterPageProps {
 }
 
 const MAX_FALLBACK_PREVIEW_PAGES = 200
+const PROGRESS_UPDATE_INTERVAL_MS = 120
 
 export function ConverterPage({ fileType, notice }: ConverterPageProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -67,6 +68,10 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [viewerPages, setViewerPages] = useState<string[]>([])
   const progressPreviewRef = useRef<string | null>(null)
+  const pendingProgressRef = useRef<number | null>(null)
+  const pendingPreviewRef = useRef<string | undefined>(undefined)
+  const progressTimerRef = useRef<number | null>(null)
+  const lastProgressFlushRef = useRef(0)
   const previewCacheRef = useRef<Map<string, string[]>>(new Map())
   const [options, setOptions] = useState<ConversionOptions>({
     splitMode: 'overlap',
@@ -86,6 +91,53 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index))
   }, [])
 
+  const flushProgressUi = useCallback((force = false) => {
+    const now = performance.now()
+    if (!force && now - lastProgressFlushRef.current < PROGRESS_UPDATE_INTERVAL_MS) {
+      return
+    }
+
+    if (pendingProgressRef.current !== null) {
+      setProgress(pendingProgressRef.current)
+      pendingProgressRef.current = null
+    }
+
+    if (pendingPreviewRef.current !== undefined) {
+      const nextPreview = pendingPreviewRef.current
+      pendingPreviewRef.current = undefined
+
+      if (progressPreviewRef.current && progressPreviewRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(progressPreviewRef.current)
+      }
+      progressPreviewRef.current = nextPreview ?? null
+      setPreviewUrl(nextPreview ?? null)
+    }
+
+    lastProgressFlushRef.current = now
+  }, [])
+
+  const scheduleProgressUiFlush = useCallback((force = false) => {
+    if (force) {
+      if (progressTimerRef.current !== null) {
+        clearTimeout(progressTimerRef.current)
+        progressTimerRef.current = null
+      }
+      flushProgressUi(true)
+      return
+    }
+
+    if (progressTimerRef.current !== null) {
+      return
+    }
+
+    const elapsed = performance.now() - lastProgressFlushRef.current
+    const delay = Math.max(0, PROGRESS_UPDATE_INTERVAL_MS - elapsed)
+    progressTimerRef.current = window.setTimeout(() => {
+      progressTimerRef.current = null
+      flushProgressUi(true)
+    }, delay)
+  }, [flushProgressUi])
+
   const handleConvert = useCallback(async () => {
     if (selectedFiles.length === 0) return
 
@@ -97,6 +149,13 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
       URL.revokeObjectURL(progressPreviewRef.current)
       progressPreviewRef.current = null
     }
+    if (progressTimerRef.current !== null) {
+      clearTimeout(progressTimerRef.current)
+      progressTimerRef.current = null
+    }
+    pendingProgressRef.current = null
+    pendingPreviewRef.current = undefined
+    lastProgressFlushRef.current = performance.now()
     setPreviewUrl(null)
 
     for (let i = 0; i < selectedFiles.length; i++) {
@@ -108,14 +167,11 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
         // Determine actual file type (cbz vs cbr)
         const actualFileType = file.name.toLowerCase().endsWith('.cbr') ? 'cbr' : fileType
         const result = await convertToXtc(file, actualFileType, options, (pageProgress, preview) => {
-          setProgress((i + pageProgress) / selectedFiles.length)
-          if (!preview) return
-
-          if (progressPreviewRef.current && progressPreviewRef.current.startsWith('blob:')) {
-            URL.revokeObjectURL(progressPreviewRef.current)
+          pendingProgressRef.current = (i + pageProgress) / selectedFiles.length
+          if (preview) {
+            pendingPreviewRef.current = preview
           }
-          progressPreviewRef.current = preview
-          setPreviewUrl(preview)
+          scheduleProgressUiFlush(pageProgress >= 0.999)
         })
 
         // Store result immediately - progressive display
@@ -130,8 +186,17 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
           error: err instanceof Error ? err.message : 'Unknown error',
         })
       }
+
+      pendingProgressRef.current = (i + 1) / selectedFiles.length
+      scheduleProgressUiFlush(true)
     }
 
+    if (progressTimerRef.current !== null) {
+      clearTimeout(progressTimerRef.current)
+      progressTimerRef.current = null
+    }
+    pendingProgressRef.current = null
+    pendingPreviewRef.current = undefined
     setProgress(1)
     setProgressText('Complete')
     if (progressPreviewRef.current && progressPreviewRef.current.startsWith('blob:')) {
@@ -140,7 +205,7 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
     }
     setPreviewUrl(null)
     setIsConverting(false)
-  }, [selectedFiles, fileType, options, addResult, clearSession])
+  }, [selectedFiles, fileType, options, addResult, clearSession, scheduleProgressUiFlush])
 
   const handlePreview = useCallback(async (result: StoredResult) => {
     const cached = previewCacheRef.current.get(result.id)
@@ -193,6 +258,9 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
 
   useEffect(() => {
     return () => {
+      if (progressTimerRef.current !== null) {
+        clearTimeout(progressTimerRef.current)
+      }
       if (progressPreviewRef.current && progressPreviewRef.current.startsWith('blob:')) {
         URL.revokeObjectURL(progressPreviewRef.current)
       }

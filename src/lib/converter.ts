@@ -129,7 +129,11 @@ function getPageProcessingOptions(
 }
 
 function shouldGenerateSampledPreview(pageNum: number, totalPages: number): boolean {
-  return pageNum === 1 || pageNum === totalPages || pageNum % PREVIEW_EVERY_N_PAGES === 0
+  let interval = PREVIEW_EVERY_N_PAGES
+  if (totalPages > 150) interval = 8
+  if (totalPages > 350) interval = 12
+  if (totalPages > 700) interval = 20
+  return pageNum === 1 || pageNum === totalPages || pageNum % interval === 0
 }
 
 function calculateWorkerPoolSize(): number {
@@ -221,7 +225,8 @@ async function processArchiveSourcePages(
       }
 
       const pageNum = index + 1
-      const includePreview = shouldGenerateSampledPreview(pageNum, totalPages)
+      const includePreview = sampledPreviews.length < MAX_STORED_PREVIEWS &&
+        shouldGenerateSampledPreview(pageNum, totalPages)
       const imgBlob = await getBlob(index)
       const pageOptions = getPageOptions(index)
 
