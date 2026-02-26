@@ -1,13 +1,41 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 
 interface ViewerProps {
   pages: string[]
   onClose: () => void
 }
 
+const MAX_THUMBNAILS = 60
+const FOCUS_WINDOW = 12
+
+function getThumbnailIndices(currentIndex: number, totalPages: number): number[] {
+  if (totalPages <= MAX_THUMBNAILS) {
+    return Array.from({ length: totalPages }, (_, index) => index)
+  }
+
+  const stride = Math.max(1, Math.ceil(totalPages / (MAX_THUMBNAILS - (FOCUS_WINDOW * 2 + 2))))
+  const indices = new Set<number>([0, totalPages - 1])
+
+  for (let index = 0; index < totalPages; index += stride) {
+    indices.add(index)
+  }
+
+  const start = Math.max(0, currentIndex - FOCUS_WINDOW)
+  const end = Math.min(totalPages - 1, currentIndex + FOCUS_WINDOW)
+  for (let index = start; index <= end; index++) {
+    indices.add(index)
+  }
+
+  return Array.from(indices).sort((a, b) => a - b)
+}
+
 export function Viewer({ pages, onClose }: ViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isRotated, setIsRotated] = useState(false)
+  const thumbnailIndices = useMemo(
+    () => getThumbnailIndices(currentIndex, pages.length),
+    [currentIndex, pages.length]
+  )
 
   const goToPage = useCallback((index: number) => {
     if (index >= 0 && index < pages.length) {
@@ -102,26 +130,29 @@ export function Viewer({ pages, onClose }: ViewerProps) {
         </div>
       </div>
       <div className="viewer-container">
-        <div
-          className="viewer-track"
-          style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-        >
-          {pages.map((src, i) => (
-            <div key={i} className="viewer-page">
-              <img src={src} alt={`Page ${i + 1}`} />
-            </div>
-          ))}
+        <div className="viewer-page">
+          <img
+            src={pages[currentIndex]}
+            alt={`Page ${currentIndex + 1}`}
+            loading="eager"
+            decoding="async"
+          />
         </div>
       </div>
       <div className="viewer-thumbnails">
         <div className="thumbnail-track">
-          {pages.map((src, i) => (
+          {thumbnailIndices.map((i) => (
             <button
               key={i}
               className={`thumbnail${i === currentIndex ? ' active' : ''}`}
               onClick={() => goToPage(i)}
             >
-              <img src={src} alt={`Page ${i + 1}`} />
+              <img
+                src={pages[i]}
+                alt={`Page ${i + 1}`}
+                loading="lazy"
+                decoding="async"
+              />
             </button>
           ))}
         </div>

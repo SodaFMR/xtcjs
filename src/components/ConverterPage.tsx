@@ -17,6 +17,8 @@ interface ConverterPageProps {
   notice?: string
 }
 
+const MAX_FALLBACK_PREVIEW_PAGES = 200
+
 export function ConverterPage({ fileType, notice }: ConverterPageProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [transferNotice, setTransferNotice] = useState<string | null>(null)
@@ -148,7 +150,7 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
     }
 
     const images = await getPreviewImages(result)
-    if (images.length > 0 && images.length === result.pageCount) {
+    if (images.length > 0) {
       previewCacheRef.current.set(result.id, images)
       setViewerPages(images)
       return
@@ -163,7 +165,10 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
       return
     }
 
-    const canvases = await extractXtcPages(data)
+    const decodeLimit = result.pageCount > MAX_FALLBACK_PREVIEW_PAGES
+      ? MAX_FALLBACK_PREVIEW_PAGES
+      : undefined
+    const canvases = await extractXtcPages(data, decodeLimit)
     const decodedImages = canvases.map((canvas) => canvas.toDataURL('image/png'))
     previewCacheRef.current.set(result.id, decodedImages)
     setViewerPages(decodedImages)

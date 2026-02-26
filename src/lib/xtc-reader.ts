@@ -56,16 +56,22 @@ function parseIndexEntry(view: DataView, offset: number): XtcIndexEntry {
 }
 
 /**
- * Parse an XTC file and extract all page data
+ * Parse an XTC file and extract page data
  */
-export async function parseXtcFile(buffer: ArrayBuffer): Promise<ParsedXtc> {
+export async function parseXtcFile(
+  buffer: ArrayBuffer,
+  maxPages?: number
+): Promise<ParsedXtc> {
   const view = new DataView(buffer)
   const header = parseXtcHeader(view)
+  const pageCountToRead = typeof maxPages === 'number'
+    ? Math.max(0, Math.min(header.pageCount, maxPages))
+    : header.pageCount
 
   const entries: XtcIndexEntry[] = []
   const indexOffset = Number(header.indexOffset)
 
-  for (let i = 0; i < header.pageCount; i++) {
+  for (let i = 0; i < pageCountToRead; i++) {
     const entryOffset = indexOffset + i * 16
     entries.push(parseIndexEntry(view, entryOffset))
   }
@@ -142,8 +148,11 @@ export function decodeXtgToCanvas(xtgBuffer: ArrayBuffer): HTMLCanvasElement {
 /**
  * Extract all pages from XTC as canvases
  */
-export async function extractXtcPages(buffer: ArrayBuffer): Promise<HTMLCanvasElement[]> {
-  const parsed = await parseXtcFile(buffer)
+export async function extractXtcPages(
+  buffer: ArrayBuffer,
+  maxPages?: number
+): Promise<HTMLCanvasElement[]> {
+  const parsed = await parseXtcFile(buffer, maxPages)
   return parsed.pageData.map(data => decodeXtgToCanvas(data))
 }
 
