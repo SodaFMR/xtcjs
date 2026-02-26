@@ -13,7 +13,7 @@ import { useStoredResults, type StoredResult } from '../hooks/useStoredResults'
 import { extractXtcPages } from '../lib/xtc-reader'
 
 interface ConverterPageProps {
-  fileType: 'cbz' | 'pdf'
+  fileType: 'cbz' | 'pdf' | 'image' | 'video'
   notice?: string
 }
 
@@ -48,6 +48,12 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
         if (fileType === 'pdf') {
           return name.endsWith('.pdf')
         }
+        if (fileType === 'image') {
+          return /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(name)
+        }
+        if (fileType === 'video') {
+          return /\.(mp4|webm|mkv|avi|mov)$/i.test(name)
+        }
         // Accept both .cbz and .cbr for comic book type
         return name.endsWith('.cbz') || name.endsWith('.cbr')
       })
@@ -75,14 +81,16 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
   const previewCacheRef = useRef<Map<string, string[]>>(new Map())
   const [options, setOptions] = useState<ConversionOptions>({
     device: 'X4',
-    splitMode: 'overlap',
+    splitMode: (fileType === 'image' || fileType === 'video') ? 'nosplit' : 'overlap',
     dithering: fileType === 'pdf' ? 'atkinson' : 'floyd',
     contrast: fileType === 'pdf' ? 8 : 4,
     horizontalMargin: 0,
     verticalMargin: 0,
-    orientation: 'landscape',
+    orientation: (fileType === 'image' || fileType === 'video') ? 'portrait' : 'landscape',
     landscapeFlipClockwise: false,
     showProgressPreview: true,
+    imageMode: fileType === 'image' ? 'cover' : 'letterbox',
+    videoFps: 1.0,
   })
 
   const handleFiles = useCallback((files: File[]) => {
@@ -166,8 +174,15 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
       setProgress(i / selectedFiles.length)
 
       try {
-        // Determine actual file type (cbz vs cbr)
-        const actualFileType = file.name.toLowerCase().endsWith('.cbr') ? 'cbr' : fileType
+        // Determine actual file type (cbz vs cbr vs image vs video)
+        let actualFileType: 'cbz' | 'cbr' | 'pdf' | 'image' | 'video' = fileType
+        if (file.name.toLowerCase().endsWith('.cbr')) {
+          actualFileType = 'cbr'
+        } else if (fileType === 'image') {
+          actualFileType = 'image'
+        } else if (fileType === 'video') {
+          actualFileType = 'video'
+        }
         const result = await convertToXtc(file, actualFileType, options, (pageProgress, preview) => {
           pendingProgressRef.current = (i + pageProgress) / selectedFiles.length
           if (preview) {
@@ -179,12 +194,12 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
         // Store result immediately - progressive display
         await addResult(result)
 
-        recordConversion(fileType).catch(() => {})
+        recordConversion(fileType === 'image' || fileType === 'video' ? 'cbz' : fileType).catch(() => {})
       } catch (err) {
         console.error(`Error converting ${file.name}:`, err)
         // Store error result
         await addResult({
-          name: file.name.replace(/\.(cbz|cbr|pdf)$/i, '.xtc'),
+          name: file.name.replace(/\.[^/.]+$/i, '.xtc'),
           error: err instanceof Error ? err.message : 'Unknown error',
         })
       }
@@ -311,7 +326,7 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
         isConverting={isConverting}
       />
 
-      <Options options={options} onChange={setOptions} />
+      <Options options={options} onChange={setOptions} fileType={fileType} />
 
       <Progress
         visible={isConverting}

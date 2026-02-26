@@ -8,6 +8,8 @@ export interface ConversionOptions {
   orientation: 'landscape' | 'portrait'
   landscapeFlipClockwise: boolean
   showProgressPreview: boolean
+  imageMode: 'cover' | 'letterbox' | 'fill' | 'crop'
+  videoFps: number
 }
 
 export interface ConversionResult {

@@ -2,20 +2,46 @@ import { useCallback, useRef, useState } from 'react'
 
 interface DropzoneProps {
   onFiles: (files: File[]) => void
-  fileType?: 'cbz' | 'pdf'
+  fileType?: 'cbz' | 'pdf' | 'image' | 'video' | 'xtc'
+  multiple?: boolean
 }
 
-export function Dropzone({ onFiles, fileType = 'cbz' }: DropzoneProps) {
+export function Dropzone({ onFiles, fileType = 'cbz', multiple = true }: DropzoneProps) {
   const [isDragover, setIsDragover] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const accept = fileType === 'pdf' ? '.pdf,.PDF' : '.cbz,.CBZ,.cbr,.CBR'
-  const label = fileType === 'pdf' ? 'PDF' : 'CBZ/CBR'
+  const accept = fileType === 'pdf'
+    ? '.pdf,.PDF'
+    : (fileType === 'image'
+      ? '.jpg,.jpeg,.png,.webp,.bmp,.gif'
+      : (fileType === 'video'
+        ? '.mp4,.webm,.mkv,.avi,.mov'
+        : (fileType === 'xtc' ? '.xtc,.xtch' : '.cbz,.CBZ,.cbr,.CBR')))
+  const label = fileType === 'pdf'
+    ? 'PDF'
+    : (fileType === 'image'
+      ? 'Image'
+      : (fileType === 'video' ? 'Video' : (fileType === 'xtc' ? 'XTC/XTCH' : 'CBZ/CBR')))
 
   const filterFiles = useCallback((files: FileList) => {
     if (fileType === 'pdf') {
       return Array.from(files).filter(f =>
         f.name.toLowerCase().endsWith('.pdf')
+      )
+    }
+    if (fileType === 'image') {
+      return Array.from(files).filter(f =>
+        /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(f.name)
+      )
+    }
+    if (fileType === 'video') {
+      return Array.from(files).filter(f =>
+        /\.(mp4|webm|mkv|avi|mov)$/i.test(f.name)
+      )
+    }
+    if (fileType === 'xtc') {
+      return Array.from(files).filter(f =>
+        /\.(xtc|xtch)$/i.test(f.name)
       )
     }
     // Accept both .cbz and .cbr for comic book type
@@ -94,7 +120,7 @@ export function Dropzone({ onFiles, fileType = 'cbz' }: DropzoneProps) {
           type="file"
           ref={fileInputRef}
           accept={accept}
-          multiple
+          multiple={multiple}
           hidden
           onChange={handleFileChange}
         />

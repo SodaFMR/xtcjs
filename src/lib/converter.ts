@@ -1,4 +1,4 @@
-// CBZ/CBR/PDF to XTC conversion logic
+// Browser conversion logic for CBZ/CBR/PDF/Image/Video to XTC
 
 import JSZip from 'jszip'
 import { createExtractorFromData } from 'node-unrar-js'
@@ -130,6 +130,57 @@ function getPageProcessingOptions(
 
 function getOutputDimensions(options: ConversionOptions): { width: number; height: number } {
   return getTargetDimensions(options.device)
+}
+
+function applyImageMode(
+  sourceCanvas: HTMLCanvasElement,
+  targetWidth: number,
+  targetHeight: number,
+  imageMode: ConversionOptions['imageMode'],
+  padColor = 255
+): HTMLCanvasElement {
+  if (imageMode === 'letterbox') {
+    return resizeWithPadding(sourceCanvas, padColor, targetWidth, targetHeight)
+  }
+
+  const result = document.createElement('canvas')
+  result.width = targetWidth
+  result.height = targetHeight
+  const ctx = result.getContext('2d')!
+
+  if (imageMode === 'fill') {
+    ctx.drawImage(sourceCanvas, 0, 0, targetWidth, targetHeight)
+    return result
+  }
+
+  if (imageMode === 'crop') {
+    const sourceAspect = sourceCanvas.width / sourceCanvas.height
+    const targetAspect = targetWidth / targetHeight
+    let sx = 0
+    let sy = 0
+    let sw = sourceCanvas.width
+    let sh = sourceCanvas.height
+
+    if (sourceAspect > targetAspect) {
+      sw = Math.round(sourceCanvas.height * targetAspect)
+      sx = Math.floor((sourceCanvas.width - sw) / 2)
+    } else if (sourceAspect < targetAspect) {
+      sh = Math.round(sourceCanvas.width / targetAspect)
+      sy = Math.floor((sourceCanvas.height - sh) / 2)
+    }
+
+    ctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, targetWidth, targetHeight)
+    return result
+  }
+
+  // cover: fill frame and crop overflow
+  const scale = Math.max(targetWidth / sourceCanvas.width, targetHeight / sourceCanvas.height)
+  const drawWidth = Math.round(sourceCanvas.width * scale)
+  const drawHeight = Math.round(sourceCanvas.height * scale)
+  const dx = Math.floor((targetWidth - drawWidth) / 2)
+  const dy = Math.floor((targetHeight - drawHeight) / 2)
+  ctx.drawImage(sourceCanvas, dx, dy, drawWidth, drawHeight)
+  return result
 }
 
 function shouldGenerateSampledPreview(pageNum: number, totalPages: number): boolean {
@@ -319,14 +370,20 @@ async function processArchiveSourcePages(
 }
 
 /**
- * Convert a file to XTC format (supports CBZ, CBR and PDF)
+ * Convert a file to XTC format (supports CBZ, CBR, PDF, image, and video)
  */
 export async function convertToXtc(
   file: File,
-  fileType: 'cbz' | 'cbr' | 'pdf',
+  fileType: 'cbz' | 'cbr' | 'pdf' | 'image' | 'video',
   options: ConversionOptions,
   onProgress: (progress: number, previewUrl: string | null) => void
 ): Promise<ConversionResult> {
+  if (fileType === 'image') {
+    return convertImageToXtc(file, options, onProgress)
+  }
+  if (fileType === 'video') {
+    return convertVideoToXtc(file, options, onProgress)
+  }
   if (fileType === 'pdf') {
     return convertPdfToXtc(file, options, onProgress)
   }
@@ -486,6 +543,169 @@ export async function convertCbrToXtc(
   )
 }
 
+function getOutputName(fileName: string): string {
+  const dot = fileName.lastIndexOf('.')
+  if (dot <= 0) return `${fileName}.xtc`
+  return `${fileName.slice(0, dot)}.xtc`
+}
+
+/**
+ * Convert a single image file to XTC.
+ */
+export async function convertImageToXtc(
+  file: File,
+  options: ConversionOptions,
+  onProgress: (progress: number, previewUrl: string | null) => void
+): Promise<ConversionResult> {
+  const imagePages = await processImage(file, 1, {
+    ...options,
+    splitMode: 'nosplit'
+  })
+
+  if (imagePages.length === 0) {
+    throw new Error('Failed to decode image')
+  }
+
+  const encodedPages = imagePages.map(encodeCanvasPage)
+  const mappingCtx = new PageMappingContext()
+  mappingCtx.addOriginalPage(1, imagePages.length)
+
+  let previewUrl: string | null = null
+  const sampledPreviews: string[] = []
+  if (options.showProgressPreview && imagePages[0]?.canvas) {
+    previewUrl = imagePages[0].canvas.toDataURL('image/jpeg', PREVIEW_JPEG_QUALITY)
+    sampledPreviews.push(previewUrl)
+  }
+  onProgress(1, previewUrl)
+
+  return finalizeConversionResult(
+    getOutputName(file.name),
+    encodedPages,
+    mappingCtx,
+    { toc: [] },
+    sampledPreviews
+  )
+}
+
+async function waitForVideoMetadata(video: HTMLVideoElement): Promise<void> {
+  if (video.readyState >= 1) {
+    return
+  }
+  await new Promise<void>((resolve, reject) => {
+    const onLoaded = () => {
+      cleanup()
+      resolve()
+    }
+    const onError = () => {
+      cleanup()
+      reject(new Error('Failed to load video metadata'))
+    }
+    const cleanup = () => {
+      video.removeEventListener('loadedmetadata', onLoaded)
+      video.removeEventListener('error', onError)
+    }
+
+    video.addEventListener('loadedmetadata', onLoaded)
+    video.addEventListener('error', onError)
+  })
+}
+
+async function seekVideo(video: HTMLVideoElement, time: number): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const onSeeked = () => {
+      cleanup()
+      resolve()
+    }
+    const onError = () => {
+      cleanup()
+      reject(new Error('Failed to seek video'))
+    }
+    const cleanup = () => {
+      video.removeEventListener('seeked', onSeeked)
+      video.removeEventListener('error', onError)
+    }
+
+    video.addEventListener('seeked', onSeeked)
+    video.addEventListener('error', onError)
+    video.currentTime = Math.max(0, time)
+  })
+}
+
+/**
+ * Convert video frames to XTC.
+ */
+export async function convertVideoToXtc(
+  file: File,
+  options: ConversionOptions,
+  onProgress: (progress: number, previewUrl: string | null) => void
+): Promise<ConversionResult> {
+  const url = URL.createObjectURL(file)
+  const video = document.createElement('video')
+  video.preload = 'auto'
+  video.muted = true
+  video.playsInline = true
+  video.src = url
+
+  try {
+    await waitForVideoMetadata(video)
+
+    if (!Number.isFinite(video.videoWidth) || !Number.isFinite(video.videoHeight) ||
+        video.videoWidth <= 0 || video.videoHeight <= 0) {
+      throw new Error('Invalid video dimensions')
+    }
+
+    const fps = Math.max(0.1, Math.min(10, Number.isFinite(options.videoFps) ? options.videoFps : 1))
+    const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0
+    const frameCount = duration > 0 ? Math.max(1, Math.floor(duration * fps)) : 1
+
+    const captureCanvas = document.createElement('canvas')
+    captureCanvas.width = video.videoWidth
+    captureCanvas.height = video.videoHeight
+    const captureCtx = captureCanvas.getContext('2d', { willReadFrequently: true })!
+
+    const encodedPages: EncodedPage[] = []
+    const sampledPreviews: string[] = []
+    const mappingCtx = new PageMappingContext()
+    const frameOptions = { ...options, splitMode: 'nosplit' as const }
+
+    for (let i = 0; i < frameCount; i++) {
+      const frameTime = duration > 0
+        ? Math.min(Math.max(0, duration - 0.001), i / fps)
+        : 0
+
+      await seekVideo(video, frameTime)
+      captureCtx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height)
+
+      const pages = processCanvasAsImage(captureCanvas, i + 1, frameOptions)
+      encodedPages.push(...pages.map(encodeCanvasPage))
+      mappingCtx.addOriginalPage(i + 1, pages.length)
+
+      const includePreview = options.showProgressPreview &&
+        sampledPreviews.length < MAX_STORED_PREVIEWS &&
+        shouldGenerateSampledPreview(i + 1, frameCount)
+      if (includePreview && pages.length > 0 && pages[0].canvas) {
+        const previewDataUrl = pages[0].canvas.toDataURL('image/jpeg', PREVIEW_JPEG_QUALITY)
+        sampledPreviews.push(previewDataUrl)
+        onProgress((i + 1) / frameCount, previewDataUrl)
+      } else {
+        onProgress((i + 1) / frameCount, null)
+      }
+    }
+
+    return finalizeConversionResult(
+      getOutputName(file.name),
+      encodedPages,
+      mappingCtx,
+      { toc: [] },
+      sampledPreviews
+    )
+  } finally {
+    URL.revokeObjectURL(url)
+    video.removeAttribute('src')
+    video.load()
+  }
+}
+
 /**
  * Convert a PDF file to XTC format
  */
@@ -587,7 +807,13 @@ function processCanvasAsImage(
   toGrayscale(ctx, width, height)
 
   if (options.orientation === 'portrait') {
-    const finalCanvas = resizeWithPadding(canvas, 255, targetWidth, targetHeight)
+    const finalCanvas = applyImageMode(
+      canvas,
+      targetWidth,
+      targetHeight,
+      options.imageMode,
+      255
+    )
     applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
 
     results.push({
@@ -707,7 +933,13 @@ function processLoadedImage(
   toGrayscale(ctx, width, height)
 
   if (options.orientation === 'portrait') {
-    const finalCanvas = resizeWithPadding(canvas, 255, targetWidth, targetHeight)
+    const finalCanvas = applyImageMode(
+      canvas,
+      targetWidth,
+      targetHeight,
+      options.imageMode,
+      255
+    )
     applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
 
     results.push({
