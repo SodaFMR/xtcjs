@@ -173,6 +173,33 @@
   font-weight: 500;
 }
 
+.options-actions {
+  margin-top: var(--space-md);
+}
+
+.btn-advanced {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--paper);
+  border: var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.btn-advanced:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.advanced-group {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: var(--border-light);
+}
+
 /* File list */
 .file-list {
   margin-top: calc(-1 * var(--space-md));

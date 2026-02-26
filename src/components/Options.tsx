@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { ConversionOptions } from '../lib/converter'
 
 interface OptionsProps {
@@ -6,10 +7,24 @@ interface OptionsProps {
 }
 
 export function Options({ options, onChange }: OptionsProps) {
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
   return (
     <aside className="options-panel">
       <div className="section-header">
-        <h2>Options</h2>
+        <h2>Basic Settings</h2>
+      </div>
+
+      <div className="option">
+        <label htmlFor="device">Target Device</label>
+        <select
+          id="device"
+          value={options.device}
+          onChange={(e) => onChange({ ...options, device: e.target.value as 'X4' | 'X3' })}
+        >
+          <option value="X4">XTEink X4 (480 x 800)</option>
+          <option value="X3">XTEink X3 (528 x 792)</option>
+        </select>
       </div>
 
       <div className="option">
@@ -68,52 +83,97 @@ export function Options({ options, onChange }: OptionsProps) {
         </select>
       </div>
 
-      <div className="option">
-        <label htmlFor="contrast">Contrast</label>
-        <select
-          id="contrast"
-          value={options.contrast}
-          onChange={(e) => onChange({ ...options, contrast: parseInt(e.target.value) })}
+      <div className="options-actions">
+        <button
+          type="button"
+          className="btn-advanced"
+          onClick={() => setShowAdvanced(prev => !prev)}
+          aria-expanded={showAdvanced}
         >
-          <option value="0">None</option>
-          <option value="2">Light</option>
-          <option value="4">Medium</option>
-          <option value="6">Strong</option>
-          <option value="8">Maximum</option>
-        </select>
+          {showAdvanced ? 'Hide Advanced Settings' : 'Advanced Settings'}
+        </button>
       </div>
 
-      <div className="option">
-        <label htmlFor="horizontalMargin">Horizontal margin crop</label>
-        <div className="input-with-unit">
-          <input
-            type="number"
-            id="horizontalMargin"
-            min="0"
-            max="20"
-            step="0.5"
-            value={options.horizontalMargin}
-            onChange={(e) => onChange({ ...options, horizontalMargin: parseFloat(e.target.value) || 0 })}
-          />
-          <span className="unit">%</span>
-        </div>
-      </div>
+      {showAdvanced && (
+        <div className="advanced-group">
+          <div className="section-header">
+            <h2>Advanced</h2>
+          </div>
 
-      <div className="option">
-        <label htmlFor="verticalMargin">Vertical margin crop</label>
-        <div className="input-with-unit">
-          <input
-            type="number"
-            id="verticalMargin"
-            min="0"
-            max="20"
-            step="0.5"
-            value={options.verticalMargin}
-            onChange={(e) => onChange({ ...options, verticalMargin: parseFloat(e.target.value) || 0 })}
-          />
-          <span className="unit">%</span>
+          {options.orientation === 'landscape' && (
+            <div className="option option-checkbox">
+              <label htmlFor="landscapeFlipClockwise" className="checkbox-label">
+                <input
+                  type="checkbox"
+                  id="landscapeFlipClockwise"
+                  checked={options.landscapeFlipClockwise}
+                  onChange={(e) => onChange({ ...options, landscapeFlipClockwise: e.target.checked })}
+                />
+                <span>Flip landscape clockwise</span>
+              </label>
+            </div>
+          )}
+
+          <div className="option">
+            <label htmlFor="contrast">Contrast</label>
+            <select
+              id="contrast"
+              value={options.contrast}
+              onChange={(e) => onChange({ ...options, contrast: parseInt(e.target.value, 10) })}
+            >
+              <option value="0">None</option>
+              <option value="2">Light</option>
+              <option value="4">Medium</option>
+              <option value="6">Strong</option>
+              <option value="8">Maximum</option>
+            </select>
+          </div>
+
+          <div className="option">
+            <label htmlFor="horizontalMargin">Horizontal margin crop</label>
+            <div className="input-with-unit">
+              <input
+                type="number"
+                id="horizontalMargin"
+                min="0"
+                max="20"
+                step="0.5"
+                value={options.horizontalMargin}
+                onChange={(e) => onChange({ ...options, horizontalMargin: parseFloat(e.target.value) || 0 })}
+              />
+              <span className="unit">%</span>
+            </div>
+          </div>
+
+          <div className="option">
+            <label htmlFor="verticalMargin">Vertical margin crop</label>
+            <div className="input-with-unit">
+              <input
+                type="number"
+                id="verticalMargin"
+                min="0"
+                max="20"
+                step="0.5"
+                value={options.verticalMargin}
+                onChange={(e) => onChange({ ...options, verticalMargin: parseFloat(e.target.value) || 0 })}
+              />
+              <span className="unit">%</span>
+            </div>
+          </div>
+
+          <div className="option option-checkbox">
+            <label htmlFor="showProgressPreview" className="checkbox-label">
+              <input
+                type="checkbox"
+                id="showProgressPreview"
+                checked={options.showProgressPreview}
+                onChange={(e) => onChange({ ...options, showProgressPreview: e.target.checked })}
+              />
+              <span>Show live progress preview</span>
+            </label>
+          </div>
         </div>
-      </div>
+      )}
     </aside>
   )
 }
