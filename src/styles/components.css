@@ -958,3 +958,116 @@
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* Metadata editor */
+.metadata-status {
+  margin: var(--space-md) 0;
+  font-style: italic;
+  color: var(--ink-faded);
+}
+
+.metadata-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.metadata-card {
+  background: var(--paper-dark);
+  border: var(--border);
+  padding: var(--space-lg);
+}
+
+.metadata-card h3 {
+  margin-bottom: var(--space-sm);
+  font-size: 1rem;
+}
+
+.metadata-actions {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.metadata-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.metadata-fields label strong {
+  font-size: 0.85rem;
+}
+
+.metadata-fields input,
+.metadata-chapter-row input {
+  width: 100%;
+  margin-top: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--paper);
+  border: var(--border-light);
+  color: var(--ink);
+  font-family: var(--font-mono);
+}
+
+.metadata-chapter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.metadata-empty {
+  color: var(--ink-faded);
+  font-style: italic;
+}
+
+.metadata-chapters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.metadata-chapter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: flex-end;
+  background: var(--paper);
+  border: var(--border-light);
+  padding: var(--space-md);
+}
+
+.metadata-chapter-row label {
+  min-width: 82px;
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.metadata-chapter-row .chapter-title-input {
+  flex: 1 1 220px;
+}
+
+.chapter-controls {
+  display: flex;
+  gap: var(--space-xs);
+  margin-left: auto;
+}
+
+.chapter-controls .btn-preview[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chapter-controls .btn-delete-meta {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chapter-controls .btn-delete-meta:hover {
+  background: var(--accent);
+  color: var(--paper);
+}

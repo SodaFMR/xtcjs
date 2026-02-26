@@ -10,6 +10,7 @@ interface ProcessedPage {
 
 interface XtcBuildOptions {
   metadata?: BookMetadata;
+  is2bit?: boolean;
 }
 
 // XTC format constants (based on reference file analysis)
@@ -61,6 +62,7 @@ export async function buildXtcFromXtgPages(
   options: XtcBuildOptions = {}
 ): Promise<ArrayBuffer> {
 
+  const is2bit = options.is2bit || false;
   const pageCount = xtgBlobs.length;
   const hasMetadata = options.metadata && (
     options.metadata.title ||
@@ -97,8 +99,12 @@ export async function buildXtcFromXtgPages(
   const view = new DataView(buffer);
   const uint8 = new Uint8Array(buffer);
 
-  // Header: XTC magic number
-  uint8[0] = 0x58; uint8[1] = 0x54; uint8[2] = 0x43; uint8[3] = 0x00;
+  // Header: XTC / XTCH magic
+  if (is2bit) {
+    uint8[0] = 0x58; uint8[1] = 0x54; uint8[2] = 0x43; uint8[3] = 0x48;
+  } else {
+    uint8[0] = 0x58; uint8[1] = 0x54; uint8[2] = 0x43; uint8[3] = 0x00;
+  }
   view.setUint16(4, 1, true); // version
   view.setUint16(6, pageCount, true);
 
@@ -150,6 +156,17 @@ export async function buildXtcFromXtgPages(
   }
 
   return buffer;
+}
+
+/**
+ * Build XTC file directly from pre-encoded page buffers (XTG or XTH).
+ * Used by metadata editing to preserve page payloads without re-encoding.
+ */
+export async function buildXtcFromBuffers(
+  pageBlobs: ArrayBuffer[],
+  options: XtcBuildOptions = {}
+): Promise<ArrayBuffer> {
+  return buildXtcFromXtgPages(pageBlobs, options);
 }
 
 /**
