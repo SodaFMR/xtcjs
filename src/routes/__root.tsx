@@ -32,7 +32,7 @@ function RootLayout() {
             </svg>
           </button>
           <p className="tagline">
-            Optimized XTC Tools for your <em>XTEink X4</em> · Support by starring on{' '}
+            Optimized XTC Tools for your XTEink X4 · Support by starring on{' '}
             <a
               href="https://github.com/varo6/xtcjs"
               target="_blank"

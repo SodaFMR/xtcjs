@@ -143,6 +143,9 @@ body {
   font-size: 0.9rem;
   color: var(--ink-faded);
   letter-spacing: 0.02em;
+  max-width: 60ch;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .tagline em {
@@ -155,11 +158,28 @@ body {
 .nav-tabs {
   display: flex;
   gap: var(--space-md);
-  justify-content: center;
+  justify-content: flex-start;
   margin-top: calc(-1 * var(--space-lg));
+  overflow-x: auto;
+  white-space: nowrap;
+  padding-bottom: var(--space-xs);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nav-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .nav-tabs {
+    justify-content: center;
+    overflow-x: visible;
+  }
 }
 
 .nav-tab {
+  flex: 0 0 auto;
   font-family: var(--font-mono);
   font-size: 1rem;
   font-weight: 500;
