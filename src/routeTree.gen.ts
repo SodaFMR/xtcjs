@@ -9,20 +9,38 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VideoRouteImport } from './routes/video'
 import { Route as PdfRouteImport } from './routes/pdf'
+import { Route as MetadataRouteImport } from './routes/metadata'
 import { Route as MergeRouteImport } from './routes/merge'
+import { Route as ImageRouteImport } from './routes/image'
 import { Route as Feature4RouteImport } from './routes/feature4'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 
+const VideoRoute = VideoRouteImport.update({
+  id: '/video',
+  path: '/video',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PdfRoute = PdfRouteImport.update({
   id: '/pdf',
   path: '/pdf',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MetadataRoute = MetadataRouteImport.update({
+  id: '/metadata',
+  path: '/metadata',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MergeRoute = MergeRouteImport.update({
   id: '/merge',
   path: '/merge',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImageRoute = ImageRouteImport.update({
+  id: '/image',
+  path: '/image',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Feature4Route = Feature4RouteImport.update({
@@ -45,42 +63,86 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/feature4': typeof Feature4Route
+  '/image': typeof ImageRoute
   '/merge': typeof MergeRoute
+  '/metadata': typeof MetadataRoute
   '/pdf': typeof PdfRoute
+  '/video': typeof VideoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/feature4': typeof Feature4Route
+  '/image': typeof ImageRoute
   '/merge': typeof MergeRoute
+  '/metadata': typeof MetadataRoute
   '/pdf': typeof PdfRoute
+  '/video': typeof VideoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/feature4': typeof Feature4Route
+  '/image': typeof ImageRoute
   '/merge': typeof MergeRoute
+  '/metadata': typeof MetadataRoute
   '/pdf': typeof PdfRoute
+  '/video': typeof VideoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/feature4' | '/merge' | '/pdf'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/feature4'
+    | '/image'
+    | '/merge'
+    | '/metadata'
+    | '/pdf'
+    | '/video'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/feature4' | '/merge' | '/pdf'
-  id: '__root__' | '/' | '/about' | '/feature4' | '/merge' | '/pdf'
+  to:
+    | '/'
+    | '/about'
+    | '/feature4'
+    | '/image'
+    | '/merge'
+    | '/metadata'
+    | '/pdf'
+    | '/video'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/feature4'
+    | '/image'
+    | '/merge'
+    | '/metadata'
+    | '/pdf'
+    | '/video'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   Feature4Route: typeof Feature4Route
+  ImageRoute: typeof ImageRoute
   MergeRoute: typeof MergeRoute
+  MetadataRoute: typeof MetadataRoute
   PdfRoute: typeof PdfRoute
+  VideoRoute: typeof VideoRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/video': {
+      id: '/video'
+      path: '/video'
+      fullPath: '/video'
+      preLoaderRoute: typeof VideoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pdf': {
       id: '/pdf'
       path: '/pdf'
@@ -88,11 +150,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PdfRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/metadata': {
+      id: '/metadata'
+      path: '/metadata'
+      fullPath: '/metadata'
+      preLoaderRoute: typeof MetadataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/merge': {
       id: '/merge'
       path: '/merge'
       fullPath: '/merge'
       preLoaderRoute: typeof MergeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/image': {
+      id: '/image'
+      path: '/image'
+      fullPath: '/image'
+      preLoaderRoute: typeof ImageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/feature4': {
@@ -123,8 +199,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   Feature4Route: Feature4Route,
+  ImageRoute: ImageRoute,
   MergeRoute: MergeRoute,
+  MetadataRoute: MetadataRoute,
   PdfRoute: PdfRoute,
+  VideoRoute: VideoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
