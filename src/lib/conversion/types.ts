@@ -1,4 +1,5 @@
 export interface ConversionOptions {
+  device: 'X4' | 'X3'
   splitMode: string
   dithering: string
   contrast: number
@@ -6,6 +7,7 @@ export interface ConversionOptions {
   verticalMargin: number
   orientation: 'landscape' | 'portrait'
   landscapeFlipClockwise: boolean
+  showProgressPreview: boolean
 }
 
 export interface ConversionResult {

@@ -74,6 +74,7 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
   const lastProgressFlushRef = useRef(0)
   const previewCacheRef = useRef<Map<string, string[]>>(new Map())
   const [options, setOptions] = useState<ConversionOptions>({
+    device: 'X4',
     splitMode: 'overlap',
     dithering: fileType === 'pdf' ? 'atkinson' : 'floyd',
     contrast: fileType === 'pdf' ? 8 : 4,
@@ -81,6 +82,7 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
     verticalMargin: 0,
     orientation: 'landscape',
     landscapeFlipClockwise: false,
+    showProgressPreview: true,
   })
 
   const handleFiles = useCallback((files: File[]) => {

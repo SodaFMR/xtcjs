@@ -1,6 +1,5 @@
 // XTC format generation for XTEink X4 e-reader
 
-import { TARGET_WIDTH, TARGET_HEIGHT } from './processing/canvas';
 import type { BookMetadata, TocEntry } from './metadata/types';
 import { imageDataToXtg } from './processing/xtg';
 
@@ -29,6 +28,17 @@ const TOC_TITLE_SIZE = 80;
 const FLAG_HAS_METADATA_LOW = 0x01000100;
 const FLAG_HAS_METADATA_HIGH = 0x00000001;
 
+function getXtgDimensions(xtgBlob: ArrayBuffer): { width: number; height: number } {
+  if (xtgBlob.byteLength < 8) {
+    return { width: 480, height: 800 };
+  }
+  const view = new DataView(xtgBlob);
+  return {
+    width: view.getUint16(4, true),
+    height: view.getUint16(6, true)
+  };
+}
+
 /**
  * Build XTC file from processed pages
  */
@@ -37,7 +47,7 @@ export async function buildXtc(
   options: XtcBuildOptions = {}
 ): Promise<ArrayBuffer> {
   const xtgBlobs = pages.map(page =>
-    imageDataToXtg(page.canvas.getContext('2d')!.getImageData(0, 0, TARGET_WIDTH, TARGET_HEIGHT))
+    imageDataToXtg(page.canvas.getContext('2d')!.getImageData(0, 0, page.canvas.width, page.canvas.height))
   );
 
   return buildXtcFromXtgPages(xtgBlobs, options);
@@ -122,11 +132,12 @@ export async function buildXtcFromXtgPages(
   for (let i = 0; i < pageCount; i++) {
     const blob = xtgBlobs[i];
     const entryOffset = indexOffset + i * INDEX_ENTRY_SIZE;
+    const dimensions = getXtgDimensions(blob);
 
     setBigUint64(view, entryOffset, BigInt(relOffset));
     view.setUint32(entryOffset + 8, blob.byteLength, true);
-    view.setUint16(entryOffset + 12, TARGET_WIDTH, true);
-    view.setUint16(entryOffset + 14, TARGET_HEIGHT, true);
+    view.setUint16(entryOffset + 12, dimensions.width, true);
+    view.setUint16(entryOffset + 14, dimensions.height, true);
 
     relOffset += blob.byteLength;
   }

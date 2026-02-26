@@ -7,7 +7,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { applyDithering } from './processing/dithering'
 import { toGrayscale, applyContrast, calculateOverlapSegments } from './processing/image'
-import { rotateCanvas, extractAndRotate, resizeWithPadding, TARGET_WIDTH, TARGET_HEIGHT } from './processing/canvas'
+import { rotateCanvas, extractAndRotate, resizeWithPadding, getTargetDimensions } from './processing/canvas'
 import { imageDataToXtg } from './processing/xtg'
 import { buildXtcFromXtgPages } from './xtc-format'
 import { extractPdfMetadata } from './metadata/pdf-outline'
@@ -128,6 +128,10 @@ function getPageProcessingOptions(
   return { ...baseOptions, splitMode: 'nosplit' }
 }
 
+function getOutputDimensions(options: ConversionOptions): { width: number; height: number } {
+  return getTargetDimensions(options.device)
+}
+
 function shouldGenerateSampledPreview(pageNum: number, totalPages: number): boolean {
   let interval = PREVIEW_EVERY_N_PAGES
   if (totalPages > 150) interval = 8
@@ -173,7 +177,7 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
 
 function encodeCanvasPage(page: ProcessedPage): EncodedPage {
   const ctx = page.canvas.getContext('2d')!
-  const imageData = ctx.getImageData(0, 0, TARGET_WIDTH, TARGET_HEIGHT)
+  const imageData = ctx.getImageData(0, 0, page.canvas.width, page.canvas.height)
   return {
     name: page.name,
     xtg: imageDataToXtg(imageData)
@@ -239,11 +243,12 @@ async function processArchiveSourcePages(
         return
       }
 
+      const pageOptions = getPageOptions(index)
       const pageNum = index + 1
-      const includePreview = sampledPreviews.length < MAX_STORED_PREVIEWS &&
+      const includePreview = pageOptions.showProgressPreview &&
+        sampledPreviews.length < MAX_STORED_PREVIEWS &&
         shouldGenerateSampledPreview(pageNum, totalPages)
       const imgBlob = await getBlob(index)
-      const pageOptions = getPageOptions(index)
 
       let previewForProgress: string | null = null
       let previewForStorage: string | null = null
@@ -523,7 +528,9 @@ async function convertPdfToXtc(
     encodedPages.push(...pages.map(encodeCanvasPage))
     mappingCtx.addOriginalPage(i, pages.length)
 
-    const includePreview = shouldGenerateSampledPreview(i, numPages)
+    const includePreview = options.showProgressPreview &&
+      sampledPreviews.length < MAX_STORED_PREVIEWS &&
+      shouldGenerateSampledPreview(i, numPages)
     if (includePreview && pages.length > 0 && pages[0].canvas) {
       const previewBlob = await canvasToBlob(pages[0].canvas, 'image/jpeg', PREVIEW_JPEG_QUALITY)
       const previewDataUrl = await blobToDataUrl(previewBlob)
@@ -554,6 +561,7 @@ function processCanvasAsImage(
   pageNum: number,
   options: ConversionOptions
 ): ProcessedPage[] {
+  const { width: targetWidth, height: targetHeight } = getOutputDimensions(options)
   const results: ProcessedPage[] = []
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')!
@@ -579,8 +587,8 @@ function processCanvasAsImage(
   toGrayscale(ctx, width, height)
 
   if (options.orientation === 'portrait') {
-    const finalCanvas = resizeWithPadding(canvas)
-    applyDithering(finalCanvas.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+    const finalCanvas = resizeWithPadding(canvas, 255, targetWidth, targetHeight)
+    applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
 
     results.push({
       name: `${String(pageNum).padStart(4, '0')}_0_page.png`,
@@ -598,8 +606,8 @@ function processCanvasAsImage(
       segments.forEach((seg, idx) => {
         const letter = String.fromCharCode(97 + idx)
         const pageCanvas = extractAndRotate(canvas, seg.x, seg.y, seg.w, seg.h, landscapeRotation)
-        const finalCanvas = resizeWithPadding(pageCanvas)
-        applyDithering(finalCanvas.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+        const finalCanvas = resizeWithPadding(pageCanvas, 255, targetWidth, targetHeight)
+        applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
 
         results.push({
           name: `${String(pageNum).padStart(4, '0')}_3_${letter}.png`,
@@ -610,16 +618,16 @@ function processCanvasAsImage(
       const halfHeight = Math.floor(height / 2)
 
       const topCanvas = extractAndRotate(canvas, 0, 0, width, halfHeight, landscapeRotation)
-      const topFinal = resizeWithPadding(topCanvas)
-      applyDithering(topFinal.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+      const topFinal = resizeWithPadding(topCanvas, 255, targetWidth, targetHeight)
+      applyDithering(topFinal.getContext('2d')!, targetWidth, targetHeight, options.dithering)
       results.push({
         name: `${String(pageNum).padStart(4, '0')}_2_a.png`,
         canvas: topFinal
       })
 
       const bottomCanvas = extractAndRotate(canvas, 0, halfHeight, width, halfHeight, landscapeRotation)
-      const bottomFinal = resizeWithPadding(bottomCanvas)
-      applyDithering(bottomFinal.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+      const bottomFinal = resizeWithPadding(bottomCanvas, 255, targetWidth, targetHeight)
+      applyDithering(bottomFinal.getContext('2d')!, targetWidth, targetHeight, options.dithering)
       results.push({
         name: `${String(pageNum).padStart(4, '0')}_2_b.png`,
         canvas: bottomFinal
@@ -627,8 +635,8 @@ function processCanvasAsImage(
     }
   } else {
     const rotatedCanvas = rotateCanvas(canvas, landscapeRotation)
-    const finalCanvas = resizeWithPadding(rotatedCanvas)
-    applyDithering(finalCanvas.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+    const finalCanvas = resizeWithPadding(rotatedCanvas, 255, targetWidth, targetHeight)
+    applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
 
     results.push({
       name: `${String(pageNum).padStart(4, '0')}_0_spread.png`,
@@ -673,6 +681,7 @@ function processLoadedImage(
   pageNum: number,
   options: ConversionOptions
 ): ProcessedPage[] {
+  const { width: targetWidth, height: targetHeight } = getOutputDimensions(options)
   const results: ProcessedPage[] = []
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')!
@@ -698,8 +707,8 @@ function processLoadedImage(
   toGrayscale(ctx, width, height)
 
   if (options.orientation === 'portrait') {
-    const finalCanvas = resizeWithPadding(canvas)
-    applyDithering(finalCanvas.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+    const finalCanvas = resizeWithPadding(canvas, 255, targetWidth, targetHeight)
+    applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
 
     results.push({
       name: `${String(pageNum).padStart(4, '0')}_0_page.png`,
@@ -717,8 +726,8 @@ function processLoadedImage(
       segments.forEach((seg, idx) => {
         const letter = String.fromCharCode(97 + idx)
         const pageCanvas = extractAndRotate(canvas, seg.x, seg.y, seg.w, seg.h, landscapeRotation)
-        const finalCanvas = resizeWithPadding(pageCanvas)
-        applyDithering(finalCanvas.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+        const finalCanvas = resizeWithPadding(pageCanvas, 255, targetWidth, targetHeight)
+        applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
 
         results.push({
           name: `${String(pageNum).padStart(4, '0')}_3_${letter}.png`,
@@ -729,16 +738,16 @@ function processLoadedImage(
       const halfHeight = Math.floor(height / 2)
 
       const topCanvas = extractAndRotate(canvas, 0, 0, width, halfHeight, landscapeRotation)
-      const topFinal = resizeWithPadding(topCanvas)
-      applyDithering(topFinal.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+      const topFinal = resizeWithPadding(topCanvas, 255, targetWidth, targetHeight)
+      applyDithering(topFinal.getContext('2d')!, targetWidth, targetHeight, options.dithering)
       results.push({
         name: `${String(pageNum).padStart(4, '0')}_2_a.png`,
         canvas: topFinal
       })
 
       const bottomCanvas = extractAndRotate(canvas, 0, halfHeight, width, halfHeight, landscapeRotation)
-      const bottomFinal = resizeWithPadding(bottomCanvas)
-      applyDithering(bottomFinal.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+      const bottomFinal = resizeWithPadding(bottomCanvas, 255, targetWidth, targetHeight)
+      applyDithering(bottomFinal.getContext('2d')!, targetWidth, targetHeight, options.dithering)
       results.push({
         name: `${String(pageNum).padStart(4, '0')}_2_b.png`,
         canvas: bottomFinal
@@ -746,8 +755,8 @@ function processLoadedImage(
     }
   } else {
     const rotatedCanvas = rotateCanvas(canvas, landscapeRotation)
-    const finalCanvas = resizeWithPadding(rotatedCanvas)
-    applyDithering(finalCanvas.getContext('2d')!, TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+    const finalCanvas = resizeWithPadding(rotatedCanvas, 255, targetWidth, targetHeight)
+    applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
 
     results.push({
       name: `${String(pageNum).padStart(4, '0')}_0_spread.png`,

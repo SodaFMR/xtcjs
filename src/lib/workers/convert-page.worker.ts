@@ -1,5 +1,4 @@
 import { applyDithering } from '../processing/dithering'
-import { TARGET_WIDTH, TARGET_HEIGHT } from '../processing/canvas'
 import { applyContrast, calculateOverlapSegments, toGrayscale } from '../processing/image'
 import { imageDataToXtg } from '../processing/xtg'
 import type { ConversionOptions } from '../conversion/types'
@@ -34,6 +33,14 @@ interface WorkerResponse {
 const PREVIEW_WIDTH = 240
 const PREVIEW_HEIGHT = 400
 const PREVIEW_JPEG_QUALITY = 0.55
+const DEVICE_DIMENSIONS = {
+  X4: { width: 480, height: 800 },
+  X3: { width: 528, height: 792 }
+} as const
+
+function getTargetDimensions(options: ConversionOptions): { width: number; height: number } {
+  return DEVICE_DIMENSIONS[options.device] ?? DEVICE_DIMENSIONS.X4
+}
 
 function clampMarginPercent(value: number): number {
   if (!Number.isFinite(value)) return 0
@@ -92,17 +99,22 @@ function extractAndRotate(
   return rotateCanvas(extract, degrees)
 }
 
-function resizeWithPadding(canvas: OffscreenCanvas, padColor = 255): OffscreenCanvas {
-  const result = new OffscreenCanvas(TARGET_WIDTH, TARGET_HEIGHT)
+function resizeWithPadding(
+  canvas: OffscreenCanvas,
+  padColor = 255,
+  targetWidth = DEVICE_DIMENSIONS.X4.width,
+  targetHeight = DEVICE_DIMENSIONS.X4.height
+): OffscreenCanvas {
+  const result = new OffscreenCanvas(targetWidth, targetHeight)
   const ctx = result.getContext('2d', { alpha: false })!
   ctx.fillStyle = `rgb(${padColor}, ${padColor}, ${padColor})`
-  ctx.fillRect(0, 0, TARGET_WIDTH, TARGET_HEIGHT)
+  ctx.fillRect(0, 0, targetWidth, targetHeight)
 
-  const scale = Math.min(TARGET_WIDTH / canvas.width, TARGET_HEIGHT / canvas.height)
+  const scale = Math.min(targetWidth / canvas.width, targetHeight / canvas.height)
   const newWidth = Math.floor(canvas.width * scale)
   const newHeight = Math.floor(canvas.height * scale)
-  const x = Math.floor((TARGET_WIDTH - newWidth) / 2)
-  const y = Math.floor((TARGET_HEIGHT - newHeight) / 2)
+  const x = Math.floor((targetWidth - newWidth) / 2)
+  const y = Math.floor((targetHeight - newHeight) / 2)
   ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, x, y, newWidth, newHeight)
   return result
 }
@@ -110,10 +122,12 @@ function resizeWithPadding(canvas: OffscreenCanvas, padColor = 255): OffscreenCa
 async function buildWorkerPage(
   name: string,
   canvas: OffscreenCanvas,
-  includePreview: boolean
+  includePreview: boolean,
+  targetWidth: number,
+  targetHeight: number
 ): Promise<WorkerPageResult> {
   const ctx = canvas.getContext('2d', { alpha: false })!
-  const xtg = imageDataToXtg(ctx.getImageData(0, 0, TARGET_WIDTH, TARGET_HEIGHT))
+  const xtg = imageDataToXtg(ctx.getImageData(0, 0, targetWidth, targetHeight))
 
   if (!includePreview) {
     return { name, xtg }
@@ -123,7 +137,7 @@ async function buildWorkerPage(
   const previewCtx = previewCanvas.getContext('2d', { alpha: false })!
   previewCtx.fillStyle = 'rgb(255,255,255)'
   previewCtx.fillRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT)
-  previewCtx.drawImage(canvas, 0, 0, TARGET_WIDTH, TARGET_HEIGHT, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT)
+  previewCtx.drawImage(canvas, 0, 0, targetWidth, targetHeight, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT)
   const previewBlob = await previewCanvas.convertToBlob({
     type: 'image/jpeg',
     quality: PREVIEW_JPEG_QUALITY
@@ -142,6 +156,7 @@ async function processBitmap(
   options: ConversionOptions,
   includePreview: boolean
 ): Promise<WorkerPageResult[]> {
+  const { width: targetWidth, height: targetHeight } = getTargetDimensions(options)
   const results: WorkerPageResult[] = []
   const crop = getAxisCropRect(source.width, source.height, options)
 
@@ -165,12 +180,19 @@ async function processBitmap(
   toGrayscale(asCanvas2d(baseCtx), width, height)
 
   if (options.orientation === 'portrait') {
-    const finalCanvas = resizeWithPadding(baseCanvas)
-    applyDithering(asCanvas2d(finalCanvas.getContext('2d', { alpha: false })!), TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+    const finalCanvas = resizeWithPadding(baseCanvas, 255, targetWidth, targetHeight)
+    applyDithering(
+      asCanvas2d(finalCanvas.getContext('2d', { alpha: false })!),
+      targetWidth,
+      targetHeight,
+      options.dithering
+    )
     results.push(await buildWorkerPage(
       `${String(pageNum).padStart(4, '0')}_0_page.png`,
       finalCanvas,
-      includePreview
+      includePreview,
+      targetWidth,
+      targetHeight
     ))
     return results
   }
@@ -186,13 +208,20 @@ async function processBitmap(
         const seg = segments[idx]
         const letter = String.fromCharCode(97 + idx)
         const pageCanvas = extractAndRotate(baseCanvas, seg.x, seg.y, seg.w, seg.h, landscapeRotation)
-        const finalCanvas = resizeWithPadding(pageCanvas)
-        applyDithering(asCanvas2d(finalCanvas.getContext('2d', { alpha: false })!), TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+        const finalCanvas = resizeWithPadding(pageCanvas, 255, targetWidth, targetHeight)
+        applyDithering(
+          asCanvas2d(finalCanvas.getContext('2d', { alpha: false })!),
+          targetWidth,
+          targetHeight,
+          options.dithering
+        )
 
         results.push(await buildWorkerPage(
           `${String(pageNum).padStart(4, '0')}_3_${letter}.png`,
           finalCanvas,
-          includePreview && !previewAssigned
+          includePreview && !previewAssigned,
+          targetWidth,
+          targetHeight
         ))
         previewAssigned = true
       }
@@ -200,32 +229,53 @@ async function processBitmap(
       const halfHeight = Math.floor(height / 2)
 
       const topCanvas = extractAndRotate(baseCanvas, 0, 0, width, halfHeight, landscapeRotation)
-      const topFinal = resizeWithPadding(topCanvas)
-      applyDithering(asCanvas2d(topFinal.getContext('2d', { alpha: false })!), TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+      const topFinal = resizeWithPadding(topCanvas, 255, targetWidth, targetHeight)
+      applyDithering(
+        asCanvas2d(topFinal.getContext('2d', { alpha: false })!),
+        targetWidth,
+        targetHeight,
+        options.dithering
+      )
       results.push(await buildWorkerPage(
         `${String(pageNum).padStart(4, '0')}_2_a.png`,
         topFinal,
-        includePreview && !previewAssigned
+        includePreview && !previewAssigned,
+        targetWidth,
+        targetHeight
       ))
       previewAssigned = true
 
       const bottomCanvas = extractAndRotate(baseCanvas, 0, halfHeight, width, halfHeight, landscapeRotation)
-      const bottomFinal = resizeWithPadding(bottomCanvas)
-      applyDithering(asCanvas2d(bottomFinal.getContext('2d', { alpha: false })!), TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+      const bottomFinal = resizeWithPadding(bottomCanvas, 255, targetWidth, targetHeight)
+      applyDithering(
+        asCanvas2d(bottomFinal.getContext('2d', { alpha: false })!),
+        targetWidth,
+        targetHeight,
+        options.dithering
+      )
       results.push(await buildWorkerPage(
         `${String(pageNum).padStart(4, '0')}_2_b.png`,
         bottomFinal,
-        includePreview && !previewAssigned
+        includePreview && !previewAssigned,
+        targetWidth,
+        targetHeight
       ))
     }
   } else {
     const rotatedCanvas = rotateCanvas(baseCanvas, landscapeRotation)
-    const finalCanvas = resizeWithPadding(rotatedCanvas)
-    applyDithering(asCanvas2d(finalCanvas.getContext('2d', { alpha: false })!), TARGET_WIDTH, TARGET_HEIGHT, options.dithering)
+    const finalCanvas = resizeWithPadding(rotatedCanvas, 255, targetWidth, targetHeight)
+    applyDithering(
+      asCanvas2d(finalCanvas.getContext('2d', { alpha: false })!),
+      targetWidth,
+      targetHeight,
+      options.dithering
+    )
     results.push(await buildWorkerPage(
       `${String(pageNum).padStart(4, '0')}_0_spread.png`,
       finalCanvas,
-      includePreview
+      includePreview,
+      targetWidth,
+      targetHeight
     ))
   }
 
