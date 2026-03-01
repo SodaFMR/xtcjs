@@ -7,6 +7,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { applyDithering } from './processing/dithering'
 import { toGrayscale, applyContrast, calculateOverlapSegments } from './processing/image'
+import { calculatePanelSegments } from './processing/panels'
 import { rotateCanvas, extractAndRotate, resizeWithPadding, getTargetDimensions } from './processing/canvas'
 import { imageDataToXtg } from './processing/xtg'
 import { buildXtcFromXtgPages } from './xtc-format'
@@ -183,6 +184,204 @@ function applyImageMode(
   return result
 }
 
+function buildLandscapePageFromRegion(
+  sourceCanvas: HTMLCanvasElement,
+  pageNum: number,
+  suffix: string,
+  region: { x: number; y: number; w: number; h: number },
+  landscapeRotation: number,
+  targetWidth: number,
+  targetHeight: number,
+  dithering: ConversionOptions['dithering']
+): ProcessedPage {
+  const pageCanvas = extractAndRotate(
+    sourceCanvas,
+    region.x,
+    region.y,
+    region.w,
+    region.h,
+    landscapeRotation
+  )
+  const finalCanvas = resizeWithPadding(pageCanvas, 255, targetWidth, targetHeight)
+  applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, dithering)
+
+  return {
+    name: `${String(pageNum).padStart(4, '0')}_${suffix}.png`,
+    canvas: finalCanvas
+  }
+}
+
+function buildLandscapeSpreadPage(
+  sourceCanvas: HTMLCanvasElement,
+  pageNum: number,
+  landscapeRotation: number,
+  targetWidth: number,
+  targetHeight: number,
+  dithering: ConversionOptions['dithering']
+): ProcessedPage {
+  const rotatedCanvas = rotateCanvas(sourceCanvas, landscapeRotation)
+  const finalCanvas = resizeWithPadding(rotatedCanvas, 255, targetWidth, targetHeight)
+  applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, dithering)
+
+  return {
+    name: `${String(pageNum).padStart(4, '0')}_0_spread.png`,
+    canvas: finalCanvas
+  }
+}
+
+function buildPreparedCanvas(
+  source: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+  options: ConversionOptions
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')!
+  const crop = getAxisCropRect(sourceWidth, sourceHeight, options)
+
+  canvas.width = crop.width
+  canvas.height = crop.height
+  ctx.drawImage(
+    source,
+    crop.x, crop.y,
+    crop.width, crop.height,
+    0, 0,
+    crop.width, crop.height
+  )
+
+  if (options.contrast > 0) {
+    applyContrast(ctx, crop.width, crop.height, options.contrast)
+  }
+
+  toGrayscale(ctx, crop.width, crop.height)
+  return canvas
+}
+
+function buildPanelSplitPages(
+  sourceCanvas: HTMLCanvasElement,
+  pageNum: number,
+  landscapeRotation: number,
+  targetWidth: number,
+  targetHeight: number,
+  options: ConversionOptions
+): ProcessedPage[] {
+  const ctx = sourceCanvas.getContext('2d')!
+  const imageData = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height)
+  const segments = calculatePanelSegments(imageData)
+
+  if (segments.length < 2) {
+    return []
+  }
+
+  return segments.map((segment, index) => buildLandscapePageFromRegion(
+    sourceCanvas,
+    pageNum,
+    `p_${String(index).padStart(2, '0')}`,
+    { x: segment.x, y: segment.y, w: segment.w, h: segment.h },
+    landscapeRotation,
+    targetWidth,
+    targetHeight,
+    options.dithering
+  ))
+}
+
+function processPreparedCanvas(
+  sourceCanvas: HTMLCanvasElement,
+  pageNum: number,
+  options: ConversionOptions
+): ProcessedPage[] {
+  const { width: targetWidth, height: targetHeight } = getOutputDimensions(options)
+  const width = sourceCanvas.width
+  const height = sourceCanvas.height
+
+  if (options.orientation === 'portrait') {
+    const finalCanvas = applyImageMode(
+      sourceCanvas,
+      targetWidth,
+      targetHeight,
+      options.imageMode,
+      255
+    )
+    applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
+
+    return [{
+      name: `${String(pageNum).padStart(4, '0')}_0_page.png`,
+      canvas: finalCanvas
+    }]
+  }
+
+  const landscapeRotation = options.landscapeFlipClockwise ? -90 : 90
+  const shouldSplit = width < height && options.splitMode !== 'nosplit'
+
+  if (!shouldSplit) {
+    return [
+      buildLandscapeSpreadPage(
+        sourceCanvas,
+        pageNum,
+        landscapeRotation,
+        targetWidth,
+        targetHeight,
+        options.dithering
+      )
+    ]
+  }
+
+  if (options.splitMode === 'panels') {
+    const panelPages = buildPanelSplitPages(
+      sourceCanvas,
+      pageNum,
+      landscapeRotation,
+      targetWidth,
+      targetHeight,
+      options
+    )
+
+    if (panelPages.length > 0) {
+      return panelPages
+    }
+  }
+
+  if (options.splitMode === 'overlap' || options.splitMode === 'panels') {
+    return calculateOverlapSegments(width, height).map((segment, index) => {
+      const suffix = `3_${String.fromCharCode(97 + index)}`
+      return buildLandscapePageFromRegion(
+        sourceCanvas,
+        pageNum,
+        suffix,
+        segment,
+        landscapeRotation,
+        targetWidth,
+        targetHeight,
+        options.dithering
+      )
+    })
+  }
+
+  const halfHeight = Math.floor(height / 2)
+  return [
+    buildLandscapePageFromRegion(
+      sourceCanvas,
+      pageNum,
+      '2_a',
+      { x: 0, y: 0, w: width, h: halfHeight },
+      landscapeRotation,
+      targetWidth,
+      targetHeight,
+      options.dithering
+    ),
+    buildLandscapePageFromRegion(
+      sourceCanvas,
+      pageNum,
+      '2_b',
+      { x: 0, y: halfHeight, w: width, h: height - halfHeight },
+      landscapeRotation,
+      targetWidth,
+      targetHeight,
+      options.dithering
+    )
+  ]
+}
+
 function shouldGenerateSampledPreview(pageNum: number, totalPages: number): boolean {
   let interval = PREVIEW_EVERY_N_PAGES
   if (totalPages > 150) interval = 8
@@ -265,7 +464,8 @@ async function processArchiveSourcePages(
   getBlob: (index: number) => Promise<Blob>,
   getPageOptions: (index: number) => ConversionOptions,
   getOriginalPage: (index: number) => number,
-  onProgress: (progress: number, previewUrl: string | null) => void
+  onProgress: (progress: number, previewUrl: string | null) => void,
+  allowWorkers = true
 ): Promise<{ encodedPages: EncodedPage[]; mappingCtx: PageMappingContext; sampledPreviews: string[] }> {
   const sampledPreviews: string[] = []
   const pageResultsByIndex: EncodedPage[][] = new Array(totalPages)
@@ -276,7 +476,7 @@ async function processArchiveSourcePages(
   let nextIndex = 0
 
   const workerPoolSize = calculateWorkerPoolSize()
-  if (PERF_PIPELINE_V2 && isWorkerPipelineSupported()) {
+  if (allowWorkers && PERF_PIPELINE_V2 && isWorkerPipelineSupported()) {
     pool = new ConvertWorkerPool(workerPoolSize)
   }
 
@@ -447,7 +647,8 @@ export async function convertCbzToXtc(
     (index) => imageFiles[index].entry.async('blob'),
     (index) => getPageProcessingOptions(options, index === 0),
     (index) => imageFiles[index].originalPage,
-    onProgress
+    onProgress,
+    options.splitMode !== 'panels'
   )
 
   return finalizeConversionResult(
@@ -531,7 +732,8 @@ export async function convertCbrToXtc(
     async (index) => new Blob([new Uint8Array(imageFiles[index].data)]),
     (index) => getPageProcessingOptions(options, index === 0),
     (index) => imageFiles[index].originalPage,
-    onProgress
+    onProgress,
+    options.splitMode !== 'panels'
   )
 
   return finalizeConversionResult(
@@ -781,96 +983,11 @@ function processCanvasAsImage(
   pageNum: number,
   options: ConversionOptions
 ): ProcessedPage[] {
-  const { width: targetWidth, height: targetHeight } = getOutputDimensions(options)
-  const results: ProcessedPage[] = []
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')!
-
-  const crop = getAxisCropRect(sourceCanvas.width, sourceCanvas.height, options)
-  canvas.width = crop.width
-  canvas.height = crop.height
-  ctx.drawImage(
-    sourceCanvas,
-    crop.x, crop.y,
-    crop.width, crop.height,
-    0, 0,
-    crop.width, crop.height
+  return processPreparedCanvas(
+    buildPreparedCanvas(sourceCanvas, sourceCanvas.width, sourceCanvas.height, options),
+    pageNum,
+    options
   )
-
-  const width = crop.width
-  const height = crop.height
-
-  if (options.contrast > 0) {
-    applyContrast(ctx, width, height, options.contrast)
-  }
-
-  toGrayscale(ctx, width, height)
-
-  if (options.orientation === 'portrait') {
-    const finalCanvas = applyImageMode(
-      canvas,
-      targetWidth,
-      targetHeight,
-      options.imageMode,
-      255
-    )
-    applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
-
-    results.push({
-      name: `${String(pageNum).padStart(4, '0')}_0_page.png`,
-      canvas: finalCanvas
-    })
-    return results
-  }
-
-  const landscapeRotation = options.landscapeFlipClockwise ? -90 : 90
-  const shouldSplit = width < height && options.splitMode !== 'nosplit'
-
-  if (shouldSplit) {
-    if (options.splitMode === 'overlap') {
-      const segments = calculateOverlapSegments(width, height)
-      segments.forEach((seg, idx) => {
-        const letter = String.fromCharCode(97 + idx)
-        const pageCanvas = extractAndRotate(canvas, seg.x, seg.y, seg.w, seg.h, landscapeRotation)
-        const finalCanvas = resizeWithPadding(pageCanvas, 255, targetWidth, targetHeight)
-        applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
-
-        results.push({
-          name: `${String(pageNum).padStart(4, '0')}_3_${letter}.png`,
-          canvas: finalCanvas
-        })
-      })
-    } else {
-      const halfHeight = Math.floor(height / 2)
-
-      const topCanvas = extractAndRotate(canvas, 0, 0, width, halfHeight, landscapeRotation)
-      const topFinal = resizeWithPadding(topCanvas, 255, targetWidth, targetHeight)
-      applyDithering(topFinal.getContext('2d')!, targetWidth, targetHeight, options.dithering)
-      results.push({
-        name: `${String(pageNum).padStart(4, '0')}_2_a.png`,
-        canvas: topFinal
-      })
-
-      const bottomCanvas = extractAndRotate(canvas, 0, halfHeight, width, halfHeight, landscapeRotation)
-      const bottomFinal = resizeWithPadding(bottomCanvas, 255, targetWidth, targetHeight)
-      applyDithering(bottomFinal.getContext('2d')!, targetWidth, targetHeight, options.dithering)
-      results.push({
-        name: `${String(pageNum).padStart(4, '0')}_2_b.png`,
-        canvas: bottomFinal
-      })
-    }
-  } else {
-    const rotatedCanvas = rotateCanvas(canvas, landscapeRotation)
-    const finalCanvas = resizeWithPadding(rotatedCanvas, 255, targetWidth, targetHeight)
-    applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
-
-    results.push({
-      name: `${String(pageNum).padStart(4, '0')}_0_spread.png`,
-      canvas: finalCanvas
-    })
-  }
-
-  return results
 }
 
 /**
@@ -907,94 +1024,9 @@ function processLoadedImage(
   pageNum: number,
   options: ConversionOptions
 ): ProcessedPage[] {
-  const { width: targetWidth, height: targetHeight } = getOutputDimensions(options)
-  const results: ProcessedPage[] = []
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')!
-
-  const crop = getAxisCropRect(img.width, img.height, options)
-  canvas.width = crop.width
-  canvas.height = crop.height
-  ctx.drawImage(
-    img,
-    crop.x, crop.y,
-    crop.width, crop.height,
-    0, 0,
-    crop.width, crop.height
+  return processPreparedCanvas(
+    buildPreparedCanvas(img, img.width, img.height, options),
+    pageNum,
+    options
   )
-
-  const width = crop.width
-  const height = crop.height
-
-  if (options.contrast > 0) {
-    applyContrast(ctx, width, height, options.contrast)
-  }
-
-  toGrayscale(ctx, width, height)
-
-  if (options.orientation === 'portrait') {
-    const finalCanvas = applyImageMode(
-      canvas,
-      targetWidth,
-      targetHeight,
-      options.imageMode,
-      255
-    )
-    applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
-
-    results.push({
-      name: `${String(pageNum).padStart(4, '0')}_0_page.png`,
-      canvas: finalCanvas
-    })
-    return results
-  }
-
-  const landscapeRotation = options.landscapeFlipClockwise ? -90 : 90
-  const shouldSplit = width < height && options.splitMode !== 'nosplit'
-
-  if (shouldSplit) {
-    if (options.splitMode === 'overlap') {
-      const segments = calculateOverlapSegments(width, height)
-      segments.forEach((seg, idx) => {
-        const letter = String.fromCharCode(97 + idx)
-        const pageCanvas = extractAndRotate(canvas, seg.x, seg.y, seg.w, seg.h, landscapeRotation)
-        const finalCanvas = resizeWithPadding(pageCanvas, 255, targetWidth, targetHeight)
-        applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
-
-        results.push({
-          name: `${String(pageNum).padStart(4, '0')}_3_${letter}.png`,
-          canvas: finalCanvas
-        })
-      })
-    } else {
-      const halfHeight = Math.floor(height / 2)
-
-      const topCanvas = extractAndRotate(canvas, 0, 0, width, halfHeight, landscapeRotation)
-      const topFinal = resizeWithPadding(topCanvas, 255, targetWidth, targetHeight)
-      applyDithering(topFinal.getContext('2d')!, targetWidth, targetHeight, options.dithering)
-      results.push({
-        name: `${String(pageNum).padStart(4, '0')}_2_a.png`,
-        canvas: topFinal
-      })
-
-      const bottomCanvas = extractAndRotate(canvas, 0, halfHeight, width, halfHeight, landscapeRotation)
-      const bottomFinal = resizeWithPadding(bottomCanvas, 255, targetWidth, targetHeight)
-      applyDithering(bottomFinal.getContext('2d')!, targetWidth, targetHeight, options.dithering)
-      results.push({
-        name: `${String(pageNum).padStart(4, '0')}_2_b.png`,
-        canvas: bottomFinal
-      })
-    }
-  } else {
-    const rotatedCanvas = rotateCanvas(canvas, landscapeRotation)
-    const finalCanvas = resizeWithPadding(rotatedCanvas, 255, targetWidth, targetHeight)
-    applyDithering(finalCanvas.getContext('2d')!, targetWidth, targetHeight, options.dithering)
-
-    results.push({
-      name: `${String(pageNum).padStart(4, '0')}_0_spread.png`,
-      canvas: finalCanvas
-    })
-  }
-
-  return results
 }

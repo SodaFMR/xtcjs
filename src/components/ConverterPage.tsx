@@ -93,6 +93,20 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
     videoFps: 1.0,
   })
 
+  useEffect(() => {
+    setOptions((prev) => {
+      if ((fileType === 'image' || fileType === 'video') && prev.splitMode !== 'nosplit') {
+        return { ...prev, splitMode: 'nosplit' }
+      }
+
+      if (fileType !== 'cbz' && prev.splitMode === 'panels') {
+        return { ...prev, splitMode: 'overlap' }
+      }
+
+      return prev
+    })
+  }, [fileType])
+
   const handleFiles = useCallback((files: File[]) => {
     setSelectedFiles(prev => [...prev, ...files])
   }, [])

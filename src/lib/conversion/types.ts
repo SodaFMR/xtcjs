@@ -1,6 +1,8 @@
+export type SplitMode = 'overlap' | 'split' | 'nosplit' | 'panels'
+
 export interface ConversionOptions {
   device: 'X4' | 'X3'
-  splitMode: string
+  splitMode: SplitMode
   dithering: string
   contrast: number
   horizontalMargin: number
