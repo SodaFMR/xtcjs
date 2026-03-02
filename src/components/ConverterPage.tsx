@@ -99,10 +99,6 @@ export function ConverterPage({ fileType, notice }: ConverterPageProps) {
         return { ...prev, splitMode: 'nosplit' }
       }
 
-      if (fileType !== 'cbz' && prev.splitMode === 'panels') {
-        return { ...prev, splitMode: 'overlap' }
-      }
-
       return prev
     })
   }, [fileType])

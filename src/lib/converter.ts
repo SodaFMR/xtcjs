@@ -7,7 +7,6 @@ import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { applyDithering } from './processing/dithering'
 import { toGrayscale, applyContrast, calculateOverlapSegments } from './processing/image'
-import { calculatePanelSegments } from './processing/panels'
 import { rotateCanvas, extractAndRotate, resizeWithPadding, getTargetDimensions } from './processing/canvas'
 import { imageDataToXtg } from './processing/xtg'
 import { buildXtcFromXtgPages } from './xtc-format'
@@ -471,34 +470,6 @@ function buildPreparedCanvas(
   return canvas
 }
 
-function buildPanelSplitPages(
-  sourceCanvas: HTMLCanvasElement,
-  pageNum: number,
-  landscapeRotation: number,
-  targetWidth: number,
-  targetHeight: number,
-  options: ConversionOptions
-): ProcessedPage[] {
-  const ctx = sourceCanvas.getContext('2d')!
-  const imageData = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height)
-  const segments = calculatePanelSegments(imageData)
-
-  if (segments.length < 2) {
-    return []
-  }
-
-  return segments.map((segment, index) => buildLandscapePageFromRegion(
-    sourceCanvas,
-    pageNum,
-    `p_${String(index).padStart(2, '0')}`,
-    { x: segment.x, y: segment.y, w: segment.w, h: segment.h },
-    landscapeRotation,
-    targetWidth,
-    targetHeight,
-    options.dithering
-  ))
-}
-
 function processPreparedCanvas(
   sourceCanvas: HTMLCanvasElement,
   pageNum: number,
@@ -540,22 +511,7 @@ function processPreparedCanvas(
     ]
   }
 
-  if (options.splitMode === 'panels') {
-    const panelPages = buildPanelSplitPages(
-      sourceCanvas,
-      pageNum,
-      landscapeRotation,
-      targetWidth,
-      targetHeight,
-      options
-    )
-
-    if (panelPages.length > 0) {
-      return panelPages
-    }
-  }
-
-  if (options.splitMode === 'overlap' || options.splitMode === 'panels') {
+  if (options.splitMode === 'overlap') {
     return calculateOverlapSegments(width, height).map((segment, index) => {
       const suffix = `3_${String.fromCharCode(97 + index)}`
       return buildLandscapePageFromRegion(
@@ -724,8 +680,7 @@ async function processArchiveSourcePages(
   getBlob: (index: number) => Promise<Blob>,
   getPageOptions: (index: number) => ConversionOptions,
   getOriginalPage: (index: number) => number,
-  onProgress: (progress: number, previewUrl: string | null) => void,
-  allowWorkers = true
+  onProgress: (progress: number, previewUrl: string | null) => void
 ): Promise<{ encodedPages: EncodedPage[]; mappingCtx: PageMappingContext; sampledPreviews: string[] }> {
   const sampledPreviews: string[] = []
   const pageResultsByIndex: EncodedPage[][] = new Array(totalPages)
@@ -736,7 +691,7 @@ async function processArchiveSourcePages(
   let nextIndex = 0
 
   const workerPoolSize = calculateWorkerPoolSize()
-  if (allowWorkers && PERF_PIPELINE_V2 && isWorkerPipelineSupported()) {
+  if (PERF_PIPELINE_V2 && isWorkerPipelineSupported()) {
     pool = new ConvertWorkerPool(workerPoolSize)
   }
 
@@ -907,8 +862,7 @@ export async function convertCbzToXtc(
     (index) => imageFiles[index].entry.async('blob'),
     (index) => getPageProcessingOptions(options, index === 0),
     (index) => imageFiles[index].originalPage,
-    onProgress,
-    options.splitMode !== 'panels'
+    onProgress
   )
 
   return finalizeConversionResult(
@@ -935,8 +889,7 @@ export async function convertImageSequenceToXtc(
     async (index) => sources[index].blob,
     (index) => getPageProcessingOptions(options, index === 0),
     (index) => index + 1,
-    onProgress,
-    options.splitMode !== 'panels'
+    onProgress
   )
 
   return finalizeConversionResult(
@@ -1020,8 +973,7 @@ export async function convertCbrToXtc(
     async (index) => new Blob([new Uint8Array(imageFiles[index].data)]),
     (index) => getPageProcessingOptions(options, index === 0),
     (index) => imageFiles[index].originalPage,
-    onProgress,
-    options.splitMode !== 'panels'
+    onProgress
   )
 
   return finalizeConversionResult(

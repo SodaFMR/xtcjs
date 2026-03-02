@@ -12,7 +12,6 @@ export function Options({ options, onChange, fileType = 'cbz' }: OptionsProps) {
   const isImageMode = fileType === 'image'
   const isVideoMode = fileType === 'video'
   const supportsSplit = !isImageMode && !isVideoMode && options.orientation === 'landscape'
-  const supportsPanelSplit = fileType === 'cbz' && supportsSplit
 
   return (
     <div className="options-stack">
@@ -124,15 +123,7 @@ export function Options({ options, onChange, fileType = 'cbz' }: OptionsProps) {
               <option value="overlap">Overlapping thirds</option>
               <option value="split">Split in half</option>
               <option value="nosplit">No split</option>
-              {supportsPanelSplit && (
-                <option value="panels">Panels (Experimental)</option>
-              )}
             </select>
-            {supportsPanelSplit && options.splitMode === 'panels' && (
-              <p className="option-hint">
-                Detects manga panels in right-to-left order. Falls back to overlapping thirds when detection is weak.
-              </p>
-            )}
           </div>
         )}
 

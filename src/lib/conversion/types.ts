@@ -1,4 +1,4 @@
-export type SplitMode = 'overlap' | 'split' | 'nosplit' | 'panels'
+export type SplitMode = 'overlap' | 'split' | 'nosplit'
 
 export interface ConversionOptions {
   device: 'X4' | 'X3'
