@@ -146,7 +146,7 @@ export function JpgVolumePage() {
             }
             scheduleProgressUiFlush(fileProgress >= 0.999)
           })
-        : await buildCbzFromImages(selectedFiles, (fileProgress, preview) => {
+        : await buildCbzFromImages(selectedFiles, options, (fileProgress, preview) => {
             pendingProgressRef.current = fileProgress
             if (preview) {
               pendingPreviewRef.current = preview
@@ -231,7 +231,7 @@ export function JpgVolumePage() {
   return (
     <>
       <div className="converter-notice">
-        <p>Bundle ordered JPG/image pages into a single manga volume. XTC uses the manga processing pipeline; CBZ just packs the pages as one archive.</p>
+        <p>Bundle ordered JPG/image pages into a single manga volume. Loose images plus `.zip`, `.cbz`, `.rar`, `.cbr`, and `.tar` archives are accepted.</p>
       </div>
 
       {recoveredCount > 0 && (
@@ -257,6 +257,7 @@ export function JpgVolumePage() {
         onRemove={handleRemove}
         onConvert={handleConvert}
         isConverting={isConverting}
+        showConvertButton={false}
       />
 
       <div className="options-stack">
@@ -290,12 +291,28 @@ export function JpgVolumePage() {
           <p className="option-hint">
             {outputFormat === 'xtc'
               ? 'XTC applies the same manga conversion settings as the main Comics tool.'
-              : 'CBZ stores the selected pages as one archive without manga image processing.'}
+              : 'CBZ now uses the same manga conversion pipeline and device settings before packaging the volume.'}
           </p>
         </aside>
 
-        {outputFormat === 'xtc' && (
-          <Options options={options} onChange={setOptions} fileType="cbz" />
+        <Options options={options} onChange={setOptions} fileType="cbz" />
+
+        {selectedFiles.length > 0 && (
+          <section className="action-section action-section-inline">
+            <button
+              className={`btn-convert${isConverting ? ' loading' : ''}`}
+              onClick={handleConvert}
+              disabled={isConverting}
+            >
+              <span>Convert</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </button>
+            <span className="help-text">
+              Builds one {outputFormat.toUpperCase()} volume from {selectedFiles.length} selected input{selectedFiles.length === 1 ? '' : 's'}.
+            </span>
+          </section>
         )}
       </div>
 

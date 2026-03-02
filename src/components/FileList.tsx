@@ -5,9 +5,16 @@ interface FileListProps {
   onRemove: (index: number) => void
   onConvert: () => void
   isConverting: boolean
+  showConvertButton?: boolean
 }
 
-export function FileList({ files, onRemove, onConvert, isConverting }: FileListProps) {
+export function FileList({
+  files,
+  onRemove,
+  onConvert,
+  isConverting,
+  showConvertButton = true
+}: FileListProps) {
   if (files.length === 0) {
     return null
   }
@@ -33,16 +40,18 @@ export function FileList({ files, onRemove, onConvert, isConverting }: FileListP
           </div>
         ))}
       </div>
-      <button
-        className={`btn-convert${isConverting ? ' loading' : ''}`}
-        onClick={onConvert}
-        disabled={isConverting}
-      >
-        <span>Convert</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
-        </svg>
-      </button>
+      {showConvertButton && (
+        <button
+          className={`btn-convert${isConverting ? ' loading' : ''}`}
+          onClick={onConvert}
+          disabled={isConverting}
+        >
+          <span>Convert</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+      )}
     </section>
   )
 }

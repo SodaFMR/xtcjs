@@ -46,6 +46,14 @@ interface CropRect {
   height: number
 }
 
+interface ImageSequenceSource {
+  name: string
+  blob: Blob
+}
+
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']
+const ARCHIVE_EXTENSIONS = ['.zip', '.cbz', '.rar', '.cbr', '.tar']
+
 function clampMarginPercent(value: number): number {
   if (!Number.isFinite(value)) return 0
   return Math.max(0, Math.min(20, value))
@@ -85,6 +93,19 @@ function getBaseName(path: string): string {
   const slashIndex = path.lastIndexOf('/')
   if (slashIndex < 0) return path
   return path.slice(slashIndex + 1)
+}
+
+function getFileExtension(path: string): string {
+  const dotIndex = path.lastIndexOf('.')
+  return dotIndex >= 0 ? path.slice(dotIndex).toLowerCase() : ''
+}
+
+function isImagePath(path: string): boolean {
+  return IMAGE_EXTENSIONS.includes(getFileExtension(path))
+}
+
+function isArchivePath(path: string): boolean {
+  return ARCHIVE_EXTENSIONS.includes(getFileExtension(path))
 }
 
 function getFileStem(fileName: string): string {
@@ -128,6 +149,155 @@ function deriveImageSequenceName(files: Array<{ name: string }>): string {
   }
 
   return stems[0] || 'manga_volume'
+}
+
+function deriveSequenceOutputName(
+  inputs: Array<{ name: string }>,
+  sources: Array<{ name: string }>
+): string {
+  if (inputs.length === 1) {
+    const singleInputName = trimSequenceSuffix(getFileStem(inputs[0].name))
+    if (singleInputName.length >= 3) {
+      return singleInputName
+    }
+  }
+
+  return deriveImageSequenceName(sources)
+}
+
+function parseTarOctalField(buffer: Uint8Array, start: number, length: number): number {
+  let value = ''
+  for (let i = start; i < start + length && i < buffer.length; i++) {
+    const byte = buffer[i]
+    if (byte === 0 || byte === 32) continue
+    value += String.fromCharCode(byte)
+  }
+
+  const trimmed = value.trim()
+  return trimmed ? parseInt(trimmed, 8) || 0 : 0
+}
+
+function parseTarStringField(buffer: Uint8Array, start: number, length: number): string {
+  let end = start
+  const max = Math.min(buffer.length, start + length)
+  while (end < max && buffer[end] !== 0) {
+    end++
+  }
+  return new TextDecoder('utf-8').decode(buffer.slice(start, end)).trim()
+}
+
+function extractTarImages(
+  arrayBuffer: ArrayBuffer,
+  archiveName: string
+): ImageSequenceSource[] {
+  const buffer = new Uint8Array(arrayBuffer)
+  const extracted: ImageSequenceSource[] = []
+  let offset = 0
+
+  while (offset + 512 <= buffer.length) {
+    const header = buffer.slice(offset, offset + 512)
+    const isEmptyHeader = header.every((byte) => byte === 0)
+    if (isEmptyHeader) break
+
+    const name = parseTarStringField(header, 0, 100)
+    const prefix = parseTarStringField(header, 345, 155)
+    const path = prefix ? `${prefix}/${name}` : name
+    const typeFlag = String.fromCharCode(header[156] || 0)
+    const size = parseTarOctalField(header, 124, 12)
+    const dataStart = offset + 512
+    const dataEnd = dataStart + size
+
+    if (typeFlag !== '5' && path && isImagePath(path) && dataEnd <= buffer.length) {
+      extracted.push({
+        name: `${getFileStem(archiveName)}/${path}`,
+        blob: new Blob([buffer.slice(dataStart, dataEnd)])
+      })
+    }
+
+    const paddedSize = Math.ceil(size / 512) * 512
+    offset = dataStart + paddedSize
+  }
+
+  return sortFilesNaturally(extracted)
+}
+
+async function extractZipImages(file: File): Promise<ImageSequenceSource[]> {
+  const zip = await JSZip.loadAsync(file)
+  const extracted: ImageSequenceSource[] = []
+
+  zip.forEach((relativePath: string, zipEntry: any) => {
+    if (zipEntry.dir) return
+    if (relativePath.toLowerCase().startsWith('__macos')) return
+    if (!isImagePath(relativePath)) return
+
+    extracted.push({
+      name: `${getFileStem(file.name)}/${relativePath}`,
+      blob: new Blob()
+    })
+  })
+
+  const sortedEntries = sortFilesNaturally(extracted)
+  for (const entry of sortedEntries) {
+    const relativePath = entry.name.slice(getFileStem(file.name).length + 1)
+    const zipEntry = zip.file(relativePath)
+    if (!zipEntry) continue
+    entry.blob = await zipEntry.async('blob')
+  }
+
+  return sortedEntries
+}
+
+async function extractRarImages(file: File): Promise<ImageSequenceSource[]> {
+  const wasmBinary = await loadUnrarWasm()
+  const arrayBuffer = await file.arrayBuffer()
+  const extractor = await createExtractorFromData({ data: arrayBuffer, wasmBinary })
+  const extracted: ImageSequenceSource[] = []
+
+  const { files } = extractor.extract()
+  for (const extractedFile of files) {
+    if (extractedFile.fileHeader.flags.directory) continue
+
+    const path = extractedFile.fileHeader.name
+    if (path.toLowerCase().startsWith('__macos')) continue
+    if (!isImagePath(path) || !extractedFile.extraction) continue
+
+    extracted.push({
+      name: `${getFileStem(file.name)}/${path}`,
+      blob: new Blob([new Uint8Array(extractedFile.extraction)])
+    })
+  }
+
+  return sortFilesNaturally(extracted)
+}
+
+async function expandImageSequenceInput(file: File): Promise<ImageSequenceSource[]> {
+  if (isImagePath(file.name)) {
+    return [{ name: file.name, blob: file }]
+  }
+
+  const extension = getFileExtension(file.name)
+  if (extension === '.zip' || extension === '.cbz') {
+    return extractZipImages(file)
+  }
+  if (extension === '.rar' || extension === '.cbr') {
+    return extractRarImages(file)
+  }
+  if (extension === '.tar') {
+    return extractTarImages(await file.arrayBuffer(), file.name)
+  }
+
+  return []
+}
+
+async function expandImageSequenceInputs(files: File[]): Promise<ImageSequenceSource[]> {
+  const sortedInputs = sortFilesNaturally(files)
+  const expanded: ImageSequenceSource[] = []
+
+  for (const file of sortedInputs) {
+    expanded.push(...await expandImageSequenceInput(file))
+  }
+
+  return expanded
 }
 
 function moveCoverToFront<T extends { path: string; originalPage: number }>(
@@ -503,17 +673,50 @@ async function finalizeConversionResult(
   }
 }
 
-async function createFilePreviewUrls(files: File[]): Promise<string[]> {
+async function buildCbzFromProcessedPages(
+  sources: ImageSequenceSource[],
+  options: ConversionOptions,
+  onProgress: (progress: number, previewUrl: string | null) => void
+): Promise<{ data: ArrayBuffer; pageCount: number; previews: string[] }> {
+  const zip = new JSZip()
   const previews: string[] = []
-  const totalPages = files.length
+  const totalSources = sources.length
+  let pageCount = 0
 
-  for (let i = 0; i < files.length; i++) {
-    if (previews.length >= MAX_STORED_PREVIEWS) break
-    if (!shouldGenerateSampledPreview(i + 1, totalPages)) continue
-    previews.push(await blobToDataUrl(files[i]))
+  for (let i = 0; i < totalSources; i++) {
+    const source = sources[i]
+    const pageOptions = getPageProcessingOptions(options, i === 0)
+    const processedPages = await processImage(source.blob, i + 1, pageOptions)
+
+    if (pageOptions.showProgressPreview &&
+        previews.length < MAX_STORED_PREVIEWS &&
+        processedPages.length > 0 &&
+        shouldGenerateSampledPreview(i + 1, totalSources)) {
+      previews.push(processedPages[0].canvas.toDataURL('image/jpeg', PREVIEW_JPEG_QUALITY))
+    }
+
+    for (const processedPage of processedPages) {
+      const pngBlob = await canvasToBlob(processedPage.canvas, 'image/png')
+      zip.file(processedPage.name, await pngBlob.arrayBuffer(), { binary: true })
+      pageCount++
+    }
+
+    const progressPreview = processedPages[0]
+      ? processedPages[0].canvas.toDataURL('image/jpeg', PREVIEW_JPEG_QUALITY)
+      : null
+    onProgress(((i + 1) / totalSources) * 0.8, progressPreview)
   }
 
-  return previews
+  const cbzData = await zip.generateAsync(
+    { type: 'arraybuffer', compression: 'STORE' },
+    ({ percent }) => {
+      const normalized = Number.isFinite(percent) ? percent / 100 : 0
+      onProgress(0.8 + normalized * 0.2, previews[0] ?? null)
+    }
+  )
+
+  onProgress(1, previews[0] ?? null)
+  return { data: cbzData, pageCount, previews }
 }
 
 async function processArchiveSourcePages(
@@ -722,14 +925,14 @@ export async function convertImageSequenceToXtc(
   options: ConversionOptions,
   onProgress: (progress: number, previewUrl: string | null) => void
 ): Promise<ConversionResult> {
-  const sortedFiles = sortFilesNaturally(files).filter((file) => /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(file.name))
-  if (sortedFiles.length === 0) {
-    throw new Error('No image files found')
+  const sources = await expandImageSequenceInputs(files)
+  if (sources.length === 0) {
+    throw new Error('No image files found in the selected images or archives')
   }
 
   const { encodedPages, mappingCtx, sampledPreviews } = await processArchiveSourcePages(
-    sortedFiles.length,
-    async (index) => sortedFiles[index],
+    sources.length,
+    async (index) => sources[index].blob,
     (index) => getPageProcessingOptions(options, index === 0),
     (index) => index + 1,
     onProgress,
@@ -737,7 +940,7 @@ export async function convertImageSequenceToXtc(
   )
 
   return finalizeConversionResult(
-    `${deriveImageSequenceName(sortedFiles)}.xtc`,
+    `${deriveSequenceOutputName(files, sources)}.xtc`,
     encodedPages,
     mappingCtx,
     { toc: [] },
@@ -832,45 +1035,22 @@ export async function convertCbrToXtc(
 
 export async function buildCbzFromImages(
   files: File[],
+  options: ConversionOptions,
   onProgress: (progress: number, previewUrl: string | null) => void
 ): Promise<ConversionResult> {
-  const sortedFiles = sortFilesNaturally(files).filter((file) => /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(file.name))
-  if (sortedFiles.length === 0) {
-    throw new Error('No image files found')
+  const sources = await expandImageSequenceInputs(files)
+  if (sources.length === 0) {
+    throw new Error('No image files found in the selected images or archives')
   }
 
-  const zip = new JSZip()
-  const previewImages = await createFilePreviewUrls(sortedFiles)
-  const totalFiles = sortedFiles.length
-
-  for (let i = 0; i < totalFiles; i++) {
-    const file = sortedFiles[i]
-    const extensionMatch = file.name.match(/\.[^/.]+$/)
-    const extension = extensionMatch ? extensionMatch[0].toLowerCase() : '.jpg'
-    zip.file(`${String(i + 1).padStart(4, '0')}${extension}`, await file.arrayBuffer(), {
-      binary: true
-    })
-
-    const previewUrl = i === 0 && previewImages.length > 0 ? previewImages[0] : null
-    onProgress(((i + 1) / totalFiles) * 0.8, previewUrl)
-  }
-
-  const cbzData = await zip.generateAsync(
-    { type: 'arraybuffer', compression: 'STORE' },
-    ({ percent }) => {
-      const normalized = Number.isFinite(percent) ? percent / 100 : 0
-      onProgress(0.8 + normalized * 0.2, previewImages[0] ?? null)
-    }
-  )
-
-  onProgress(1, previewImages[0] ?? null)
+  const { data, pageCount, previews } = await buildCbzFromProcessedPages(sources, options, onProgress)
 
   return {
-    name: `${deriveImageSequenceName(sortedFiles)}.cbz`,
-    data: cbzData,
-    size: cbzData.byteLength,
-    pageCount: sortedFiles.length,
-    pageImages: previewImages,
+    name: `${deriveSequenceOutputName(files, sources)}.cbz`,
+    data,
+    size: data.byteLength,
+    pageCount,
+    pageImages: previews,
     previewMode: 'sparse'
   }
 }

@@ -13,14 +13,16 @@ export function Dropzone({ onFiles, fileType = 'cbz', multiple = true }: Dropzon
   const accept = fileType === 'pdf'
     ? '.pdf,.PDF'
     : ((fileType === 'image' || fileType === 'jpgs')
-      ? '.jpg,.jpeg,.png,.webp,.bmp,.gif'
+      ? (fileType === 'jpgs'
+        ? '.jpg,.jpeg,.png,.webp,.bmp,.gif,.zip,.cbz,.rar,.cbr,.tar'
+        : '.jpg,.jpeg,.png,.webp,.bmp,.gif')
       : (fileType === 'video'
         ? '.mp4,.webm,.mkv,.avi,.mov'
         : (fileType === 'xtc' ? '.xtc,.xtch' : '.cbz,.CBZ,.cbr,.CBR')))
   const label = fileType === 'pdf'
     ? 'PDF'
     : ((fileType === 'image' || fileType === 'jpgs')
-      ? (fileType === 'jpgs' ? 'JPG / Image' : 'Image')
+      ? (fileType === 'jpgs' ? 'JPG / Image / Archive' : 'Image')
       : (fileType === 'video' ? 'Video' : (fileType === 'xtc' ? 'XTC/XTCH' : 'CBZ/CBR')))
 
   const filterFiles = useCallback((files: FileList) => {
@@ -31,7 +33,9 @@ export function Dropzone({ onFiles, fileType = 'cbz', multiple = true }: Dropzon
     }
     if (fileType === 'image' || fileType === 'jpgs') {
       return Array.from(files).filter(f =>
-        /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(f.name)
+        fileType === 'jpgs'
+          ? /\.(jpg|jpeg|png|webp|bmp|gif|zip|cbz|rar|cbr|tar)$/i.test(f.name)
+          : /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(f.name)
       )
     }
     if (fileType === 'video') {

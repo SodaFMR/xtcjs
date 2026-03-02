@@ -758,6 +758,10 @@
   margin-top: var(--space-sm);
 }
 
+.action-section-inline {
+  margin-top: 0;
+}
+
 /* Download All */
 .download-all {
   margin-top: var(--space-md);
