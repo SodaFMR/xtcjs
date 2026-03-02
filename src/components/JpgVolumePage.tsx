@@ -231,7 +231,7 @@ export function JpgVolumePage() {
   return (
     <>
       <div className="converter-notice">
-        <p>Bundle ordered JPG/image pages into a single manga volume. Loose images plus `.zip`, `.cbz`, `.rar`, `.cbr`, and `.tar` archives are accepted.</p>
+        <p>Bundle ordered JPG/image pages into a single manga volume. Loose images plus '.zip', '.cbz', '.rar', '.cbr', and '.tar' archives are accepted.</p>
       </div>
 
       {recoveredCount > 0 && (
@@ -286,12 +286,12 @@ export function JpgVolumePage() {
           </div>
 
           <p className="option-hint">
-            Files are ordered naturally by filename, for example `001`, `002`, `010`.
+            Files are ordered naturally by filename, for example '001', '002', '010'.
           </p>
           <p className="option-hint">
             {outputFormat === 'xtc'
               ? 'XTC applies the same manga conversion settings as the main Comics tool.'
-              : 'CBZ now uses the same manga conversion pipeline and device settings before packaging the volume.'}
+              : 'CBZ applies the same manga conversion settings as the main Comics tool.'}
           </p>
         </aside>
 
