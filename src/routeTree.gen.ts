@@ -13,9 +13,9 @@ import { Route as VideoRouteImport } from './routes/video'
 import { Route as PdfRouteImport } from './routes/pdf'
 import { Route as MetadataRouteImport } from './routes/metadata'
 import { Route as MergeRouteImport } from './routes/merge'
-import { Route as JpgsRouteImport } from './routes/jpgs'
 import { Route as ImageRouteImport } from './routes/image'
 import { Route as Feature4RouteImport } from './routes/feature4'
+import { Route as BulkRouteImport } from './routes/bulk'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -39,11 +39,6 @@ const MergeRoute = MergeRouteImport.update({
   path: '/merge',
   getParentRoute: () => rootRouteImport,
 } as any)
-const JpgsRoute = JpgsRouteImport.update({
-  id: '/jpgs',
-  path: '/jpgs',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ImageRoute = ImageRouteImport.update({
   id: '/image',
   path: '/image',
@@ -52,6 +47,11 @@ const ImageRoute = ImageRouteImport.update({
 const Feature4Route = Feature4RouteImport.update({
   id: '/feature4',
   path: '/feature4',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BulkRoute = BulkRouteImport.update({
+  id: '/bulk',
+  path: '/bulk',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -68,9 +68,9 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/bulk': typeof BulkRoute
   '/feature4': typeof Feature4Route
   '/image': typeof ImageRoute
-  '/jpgs': typeof JpgsRoute
   '/merge': typeof MergeRoute
   '/metadata': typeof MetadataRoute
   '/pdf': typeof PdfRoute
@@ -79,9 +79,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/bulk': typeof BulkRoute
   '/feature4': typeof Feature4Route
   '/image': typeof ImageRoute
-  '/jpgs': typeof JpgsRoute
   '/merge': typeof MergeRoute
   '/metadata': typeof MetadataRoute
   '/pdf': typeof PdfRoute
@@ -91,9 +91,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/bulk': typeof BulkRoute
   '/feature4': typeof Feature4Route
   '/image': typeof ImageRoute
-  '/jpgs': typeof JpgsRoute
   '/merge': typeof MergeRoute
   '/metadata': typeof MetadataRoute
   '/pdf': typeof PdfRoute
@@ -104,9 +104,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/bulk'
     | '/feature4'
     | '/image'
-    | '/jpgs'
     | '/merge'
     | '/metadata'
     | '/pdf'
@@ -115,9 +115,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/bulk'
     | '/feature4'
     | '/image'
-    | '/jpgs'
     | '/merge'
     | '/metadata'
     | '/pdf'
@@ -126,9 +126,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/about'
+    | '/bulk'
     | '/feature4'
     | '/image'
-    | '/jpgs'
     | '/merge'
     | '/metadata'
     | '/pdf'
@@ -138,9 +138,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  BulkRoute: typeof BulkRoute
   Feature4Route: typeof Feature4Route
   ImageRoute: typeof ImageRoute
-  JpgsRoute: typeof JpgsRoute
   MergeRoute: typeof MergeRoute
   MetadataRoute: typeof MetadataRoute
   PdfRoute: typeof PdfRoute
@@ -177,13 +177,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MergeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/jpgs': {
-      id: '/jpgs'
-      path: '/jpgs'
-      fullPath: '/jpgs'
-      preLoaderRoute: typeof JpgsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/image': {
       id: '/image'
       path: '/image'
@@ -196,6 +189,13 @@ declare module '@tanstack/react-router' {
       path: '/feature4'
       fullPath: '/feature4'
       preLoaderRoute: typeof Feature4RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bulk': {
+      id: '/bulk'
+      path: '/bulk'
+      fullPath: '/bulk'
+      preLoaderRoute: typeof BulkRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -218,9 +218,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  BulkRoute: BulkRoute,
   Feature4Route: Feature4Route,
   ImageRoute: ImageRoute,
-  JpgsRoute: JpgsRoute,
   MergeRoute: MergeRoute,
   MetadataRoute: MetadataRoute,
   PdfRoute: PdfRoute,

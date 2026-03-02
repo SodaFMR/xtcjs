@@ -231,7 +231,7 @@ export function JpgVolumePage() {
   return (
     <>
       <div className="converter-notice">
-        <p>Bundle ordered JPG/image pages into a single manga volume. Loose images plus '.zip', '.cbz', '.rar', '.cbr', and '.tar' archives are accepted.</p>
+        <p>Bundle ordered image pages into a single manga volume. Loose images plus compressed '.zip', '.cbz', '.rar', '.cbr', and '.tar' archives are accepted.</p>
       </div>
 
       {recoveredCount > 0 && (
@@ -250,7 +250,7 @@ export function JpgVolumePage() {
         </div>
       )}
 
-      <Dropzone onFiles={handleFiles} fileType="jpgs" />
+      <Dropzone onFiles={handleFiles} fileType="bulk" />
 
       <FileList
         files={selectedFiles}

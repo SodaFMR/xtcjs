@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 
 interface DropzoneProps {
   onFiles: (files: File[]) => void
-  fileType?: 'cbz' | 'pdf' | 'image' | 'video' | 'xtc' | 'jpgs'
+  fileType?: 'cbz' | 'pdf' | 'image' | 'video' | 'xtc' | 'bulk'
   multiple?: boolean
 }
 
@@ -12,8 +12,8 @@ export function Dropzone({ onFiles, fileType = 'cbz', multiple = true }: Dropzon
 
   const accept = fileType === 'pdf'
     ? '.pdf,.PDF'
-    : ((fileType === 'image' || fileType === 'jpgs')
-      ? (fileType === 'jpgs'
+    : ((fileType === 'image' || fileType === 'bulk')
+      ? (fileType === 'bulk'
         ? '.jpg,.jpeg,.png,.webp,.bmp,.gif,.zip,.cbz,.rar,.cbr,.tar'
         : '.jpg,.jpeg,.png,.webp,.bmp,.gif')
       : (fileType === 'video'
@@ -21,8 +21,8 @@ export function Dropzone({ onFiles, fileType = 'cbz', multiple = true }: Dropzon
         : (fileType === 'xtc' ? '.xtc,.xtch' : '.cbz,.CBZ,.cbr,.CBR')))
   const label = fileType === 'pdf'
     ? 'PDF'
-    : ((fileType === 'image' || fileType === 'jpgs')
-      ? (fileType === 'jpgs' ? 'JPG / Image / Archive' : 'Image')
+    : ((fileType === 'image' || fileType === 'bulk')
+      ? (fileType === 'bulk' ? 'Bulk Input' : 'Image')
       : (fileType === 'video' ? 'Video' : (fileType === 'xtc' ? 'XTC/XTCH' : 'CBZ/CBR')))
 
   const filterFiles = useCallback((files: FileList) => {
@@ -31,9 +31,9 @@ export function Dropzone({ onFiles, fileType = 'cbz', multiple = true }: Dropzon
         f.name.toLowerCase().endsWith('.pdf')
       )
     }
-    if (fileType === 'image' || fileType === 'jpgs') {
+    if (fileType === 'image' || fileType === 'bulk') {
       return Array.from(files).filter(f =>
-        fileType === 'jpgs'
+        fileType === 'bulk'
           ? /\.(jpg|jpeg|png|webp|bmp|gif|zip|cbz|rar|cbr|tar)$/i.test(f.name)
           : /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(f.name)
       )

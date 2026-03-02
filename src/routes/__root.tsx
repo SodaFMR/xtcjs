@@ -17,7 +17,7 @@ function RootLayout() {
     location.pathname === '/image' ||
     location.pathname === '/video' ||
     location.pathname === '/metadata' ||
-    location.pathname === '/jpgs'
+    location.pathname === '/bulk'
   const [extraOpen, setExtraOpen] = useState(isExtraRoute)
 
   useEffect(() => {
@@ -123,8 +123,8 @@ function RootLayout() {
               <Link to="/metadata" className={`nav-subtab${location.pathname === '/metadata' ? ' active' : ''}`}>
                 Metadata
               </Link>
-              <Link to="/jpgs" className={`nav-subtab${location.pathname === '/jpgs' ? ' active' : ''}`}>
-                JPGs
+              <Link to="/bulk" className={`nav-subtab${location.pathname === '/bulk' ? ' active' : ''}`}>
+                Bulk
               </Link>
             </nav>
           )}
