@@ -13,7 +13,11 @@ function RootLayout() {
     if (typeof window === 'undefined') return 'light'
     return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
   })
-  const isExtraRoute = location.pathname === '/image' || location.pathname === '/video' || location.pathname === '/metadata'
+  const isExtraRoute =
+    location.pathname === '/image' ||
+    location.pathname === '/video' ||
+    location.pathname === '/metadata' ||
+    location.pathname === '/jpgs'
   const [extraOpen, setExtraOpen] = useState(isExtraRoute)
 
   useEffect(() => {
@@ -118,6 +122,9 @@ function RootLayout() {
               </Link>
               <Link to="/metadata" className={`nav-subtab${location.pathname === '/metadata' ? ' active' : ''}`}>
                 Metadata
+              </Link>
+              <Link to="/jpgs" className={`nav-subtab${location.pathname === '/jpgs' ? ' active' : ''}`}>
+                JPGs
               </Link>
             </nav>
           )}

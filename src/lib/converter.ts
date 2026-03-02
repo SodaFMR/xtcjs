@@ -27,6 +27,7 @@ const PERF_PIPELINE_V2 = true
 const PREVIEW_EVERY_N_PAGES = 5
 const MAX_STORED_PREVIEWS = 12
 const PREVIEW_JPEG_QUALITY = 0.55
+const FILE_NAME_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
 interface ProcessedPage {
   name: string
@@ -84,6 +85,49 @@ function getBaseName(path: string): string {
   const slashIndex = path.lastIndexOf('/')
   if (slashIndex < 0) return path
   return path.slice(slashIndex + 1)
+}
+
+function getFileStem(fileName: string): string {
+  return fileName.replace(/\.[^/.]+$/, '')
+}
+
+function trimSequenceSuffix(value: string): string {
+  return value
+    .replace(/[\s._-]*\d+$/, '')
+    .replace(/[\s._-]+$/, '')
+    .trim()
+}
+
+function sortFilesNaturally<T extends { name: string }>(files: T[]): T[] {
+  return [...files].sort((a, b) => FILE_NAME_COLLATOR.compare(a.name, b.name))
+}
+
+function deriveImageSequenceName(files: Array<{ name: string }>): string {
+  if (files.length === 0) return 'manga_volume'
+
+  const sortedFiles = sortFilesNaturally(files)
+  const stems = sortedFiles.map((file) => getFileStem(file.name))
+  let prefix = stems[0]
+
+  for (let i = 1; i < stems.length && prefix.length > 0; i++) {
+    let j = 0
+    while (j < prefix.length && j < stems[i].length && prefix[j] === stems[i][j]) {
+      j++
+    }
+    prefix = prefix.slice(0, j)
+  }
+
+  const normalizedPrefix = trimSequenceSuffix(prefix)
+  if (normalizedPrefix.length >= 3) {
+    return normalizedPrefix
+  }
+
+  const firstFallback = trimSequenceSuffix(stems[0])
+  if (firstFallback.length >= 3) {
+    return firstFallback
+  }
+
+  return stems[0] || 'manga_volume'
 }
 
 function moveCoverToFront<T extends { path: string; originalPage: number }>(
@@ -459,6 +503,19 @@ async function finalizeConversionResult(
   }
 }
 
+async function createFilePreviewUrls(files: File[]): Promise<string[]> {
+  const previews: string[] = []
+  const totalPages = files.length
+
+  for (let i = 0; i < files.length; i++) {
+    if (previews.length >= MAX_STORED_PREVIEWS) break
+    if (!shouldGenerateSampledPreview(i + 1, totalPages)) continue
+    previews.push(await blobToDataUrl(files[i]))
+  }
+
+  return previews
+}
+
 async function processArchiveSourcePages(
   totalPages: number,
   getBlob: (index: number) => Promise<Blob>,
@@ -660,6 +717,34 @@ export async function convertCbzToXtc(
   )
 }
 
+export async function convertImageSequenceToXtc(
+  files: File[],
+  options: ConversionOptions,
+  onProgress: (progress: number, previewUrl: string | null) => void
+): Promise<ConversionResult> {
+  const sortedFiles = sortFilesNaturally(files).filter((file) => /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(file.name))
+  if (sortedFiles.length === 0) {
+    throw new Error('No image files found')
+  }
+
+  const { encodedPages, mappingCtx, sampledPreviews } = await processArchiveSourcePages(
+    sortedFiles.length,
+    async (index) => sortedFiles[index],
+    (index) => getPageProcessingOptions(options, index === 0),
+    (index) => index + 1,
+    onProgress,
+    options.splitMode !== 'panels'
+  )
+
+  return finalizeConversionResult(
+    `${deriveImageSequenceName(sortedFiles)}.xtc`,
+    encodedPages,
+    mappingCtx,
+    { toc: [] },
+    sampledPreviews
+  )
+}
+
 // Cache for loaded wasm binary
 let wasmBinaryCache: ArrayBuffer | null = null
 
@@ -743,6 +828,51 @@ export async function convertCbrToXtc(
     metadata,
     sampledPreviews
   )
+}
+
+export async function buildCbzFromImages(
+  files: File[],
+  onProgress: (progress: number, previewUrl: string | null) => void
+): Promise<ConversionResult> {
+  const sortedFiles = sortFilesNaturally(files).filter((file) => /\.(jpg|jpeg|png|webp|bmp|gif)$/i.test(file.name))
+  if (sortedFiles.length === 0) {
+    throw new Error('No image files found')
+  }
+
+  const zip = new JSZip()
+  const previewImages = await createFilePreviewUrls(sortedFiles)
+  const totalFiles = sortedFiles.length
+
+  for (let i = 0; i < totalFiles; i++) {
+    const file = sortedFiles[i]
+    const extensionMatch = file.name.match(/\.[^/.]+$/)
+    const extension = extensionMatch ? extensionMatch[0].toLowerCase() : '.jpg'
+    zip.file(`${String(i + 1).padStart(4, '0')}${extension}`, await file.arrayBuffer(), {
+      binary: true
+    })
+
+    const previewUrl = i === 0 && previewImages.length > 0 ? previewImages[0] : null
+    onProgress(((i + 1) / totalFiles) * 0.8, previewUrl)
+  }
+
+  const cbzData = await zip.generateAsync(
+    { type: 'arraybuffer', compression: 'STORE' },
+    ({ percent }) => {
+      const normalized = Number.isFinite(percent) ? percent / 100 : 0
+      onProgress(0.8 + normalized * 0.2, previewImages[0] ?? null)
+    }
+  )
+
+  onProgress(1, previewImages[0] ?? null)
+
+  return {
+    name: `${deriveImageSequenceName(sortedFiles)}.cbz`,
+    data: cbzData,
+    size: cbzData.byteLength,
+    pageCount: sortedFiles.length,
+    pageImages: previewImages,
+    previewMode: 'sparse'
+  }
 }
 
 function getOutputName(fileName: string): string {

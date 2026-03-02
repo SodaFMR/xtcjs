@@ -13,6 +13,7 @@ import { Route as VideoRouteImport } from './routes/video'
 import { Route as PdfRouteImport } from './routes/pdf'
 import { Route as MetadataRouteImport } from './routes/metadata'
 import { Route as MergeRouteImport } from './routes/merge'
+import { Route as JpgsRouteImport } from './routes/jpgs'
 import { Route as ImageRouteImport } from './routes/image'
 import { Route as Feature4RouteImport } from './routes/feature4'
 import { Route as AboutRouteImport } from './routes/about'
@@ -36,6 +37,11 @@ const MetadataRoute = MetadataRouteImport.update({
 const MergeRoute = MergeRouteImport.update({
   id: '/merge',
   path: '/merge',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JpgsRoute = JpgsRouteImport.update({
+  id: '/jpgs',
+  path: '/jpgs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ImageRoute = ImageRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/feature4': typeof Feature4Route
   '/image': typeof ImageRoute
+  '/jpgs': typeof JpgsRoute
   '/merge': typeof MergeRoute
   '/metadata': typeof MetadataRoute
   '/pdf': typeof PdfRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/feature4': typeof Feature4Route
   '/image': typeof ImageRoute
+  '/jpgs': typeof JpgsRoute
   '/merge': typeof MergeRoute
   '/metadata': typeof MetadataRoute
   '/pdf': typeof PdfRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/feature4': typeof Feature4Route
   '/image': typeof ImageRoute
+  '/jpgs': typeof JpgsRoute
   '/merge': typeof MergeRoute
   '/metadata': typeof MetadataRoute
   '/pdf': typeof PdfRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/feature4'
     | '/image'
+    | '/jpgs'
     | '/merge'
     | '/metadata'
     | '/pdf'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/feature4'
     | '/image'
+    | '/jpgs'
     | '/merge'
     | '/metadata'
     | '/pdf'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/feature4'
     | '/image'
+    | '/jpgs'
     | '/merge'
     | '/metadata'
     | '/pdf'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   Feature4Route: typeof Feature4Route
   ImageRoute: typeof ImageRoute
+  JpgsRoute: typeof JpgsRoute
   MergeRoute: typeof MergeRoute
   MetadataRoute: typeof MetadataRoute
   PdfRoute: typeof PdfRoute
@@ -162,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/merge'
       fullPath: '/merge'
       preLoaderRoute: typeof MergeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/jpgs': {
+      id: '/jpgs'
+      path: '/jpgs'
+      fullPath: '/jpgs'
+      preLoaderRoute: typeof JpgsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/image': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   Feature4Route: Feature4Route,
   ImageRoute: ImageRoute,
+  JpgsRoute: JpgsRoute,
   MergeRoute: MergeRoute,
   MetadataRoute: MetadataRoute,
   PdfRoute: PdfRoute,
