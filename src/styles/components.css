@@ -1049,16 +1049,6 @@
   color: var(--ink-faded);
 }
 
-.metadata-title {
-  font-family: var(--font-serif);
-  font-size: 1.35rem;
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--ink);
-}
-
 .metadata-editor {
   display: flex;
   flex-direction: column;

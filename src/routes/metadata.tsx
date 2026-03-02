@@ -148,10 +148,12 @@ function MetadataEditor() {
   }
 
   return (
-    <div className="content-section metadata-page" style={{ gridColumn: '1 / -1' }}>
-      <div className="section-header" style={{ marginBottom: 'var(--space-xl)' }}>
-        <h2 className="metadata-title">Metadata Editor (XTC/XTCH)</h2>
+    <>
+      <div className="converter-notice">
+        <p>Load an XTC or XTCH file to inspect its metadata, edit title and author fields, adjust chapters, and repack the file.</p>
       </div>
+
+      <div className="content-section metadata-page" style={{ gridColumn: '1 / -1' }}>
 
       {!file && (
         <div className="dropzone-wrapper" style={{ minHeight: '300px' }}>
@@ -290,9 +292,10 @@ function MetadataEditor() {
         </div>
       )}
 
-      {isPreviewOpen && previewPages.length > 0 && (
-        <Viewer pages={previewPages} onClose={() => setIsPreviewOpen(false)} />
-      )}
-    </div>
+        {isPreviewOpen && previewPages.length > 0 && (
+          <Viewer pages={previewPages} onClose={() => setIsPreviewOpen(false)} />
+        )}
+      </div>
+    </>
   )
 }
